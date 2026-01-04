@@ -276,16 +276,70 @@ class App(ctk.CTk):
             self.info_label.configure(text=f"Download path set to: {path}")
 
     def _populate_console_list(self):
-        consoles = self.manager.get_console_list() 
-        consoles.sort(key=lambda x: x[2])
-        for cat, key, name in consoles:
-            btn = ctk.CTkButton(self.console_list_frame, text=name, anchor="w", fg_color="transparent", border_width=1,
-                                command=lambda c=cat, k=key, n=name: self._select_console(c, k, n))
-            btn.pack(fill="x", pady=2)
+        # Clear existing
+        for widget in self.console_list_frame.winfo_children():
+            widget.destroy()
 
-    def _select_console(self, category, key, name):
+        self.category_frames = {} # {category_name: frame}
+        self.category_buttons = {} # {category_name: (button, arrow_label)}
+
+        # Iterate over categories in alphabetical order or specific order
+        for category, consoles_data in self.manager.consoles.items():
+            self._create_category_group(category, consoles_data)
+
+    def _create_category_group(self, category, consoles_data):
+        # Create a parent frame for this entire group (Header + Content)
+        # This ensures they stay together in the main list order
+        group_frame = ctk.CTkFrame(self.console_list_frame, fg_color="transparent")
+        group_frame.pack(fill="x", pady=2)
+
+        # 1. Category Header Button
+        header_frame = ctk.CTkFrame(group_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=0)
+        
+        # Using a button for the whole header
+        is_expanded = True
+        
+        # Container for content (initially visible)
+        content_frame = ctk.CTkFrame(group_frame, fg_color="transparent")
+        content_frame.pack(fill="x", padx=10, pady=0)
+        
+        # Toggle function
+        def toggle_category(cat=category):
+            frame = self.category_frames[cat]
+            btn = self.category_buttons[cat]
+            if frame.winfo_viewable():
+                frame.pack_forget()
+                btn.configure(text=f"▶ {cat}")
+            else:
+                frame.pack(fill="x", padx=10, pady=0)
+                btn.configure(text=f"▼ {cat}")
+
+        btn = ctk.CTkButton(header_frame, text=f"▼ {category}", fg_color="#333", hover_color="#444", 
+                            anchor="w", command=toggle_category, font=("Arial", 13, "bold"))
+        btn.pack(fill="x")
+        
+        self.category_frames[category] = content_frame
+        self.category_buttons[category] = btn
+
+        # 2. Console Buttons inside content_frame
+        # Sort consoles by name inside category
+        sorted_keys = sorted(consoles_data.keys(), key=lambda k: consoles_data[k]['name'])
+        
+        for key in sorted_keys:
+            data = consoles_data[key]
+            name = data['name']
+            
+            # Simple button
+            c_btn = ctk.CTkButton(content_frame, text=name, anchor="w", fg_color="transparent", 
+                                  hover_color="#3A3A3A", height=24,
+                                  command=lambda c=category, k=key: self._on_console_select(c, k))
+            c_btn.pack(fill="x", pady=1)
+
+    def _on_console_select(self, category, key):
         self.selected_category = category
         self.selected_console = key
+        name = self.manager.consoles[category][key]['name']
         self.info_label.configure(text=f"Loading {name}...")
         self.update()
         threading.Thread(target=self._fetch_and_show, args=(category, key, name)).start()
