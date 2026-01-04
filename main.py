@@ -33,7 +33,38 @@ class App(ctk.CTk):
         self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         
-        self.logo_label = ctk.CTkLabel(self.sidebar, text="Romifleur", font=ctk.CTkFont(size=20, weight="bold"))
+        from PIL import Image
+        
+        # Logo Setup
+        try:
+            base_path = os.path.dirname(__file__)
+            
+            # 1. Main Logo (Sidebar)
+            # Try specific filenames
+            main_logo_path = os.path.join(base_path, "logo-romifleur.png")
+            if not os.path.exists(main_logo_path):
+                 main_logo_path = os.path.join(base_path, "Romifleur_logo.png")
+            
+            if os.path.exists(main_logo_path):
+                pil_image = Image.open(main_logo_path)
+                self.logo_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(180, 180))
+                self.logo_label = ctk.CTkLabel(self.sidebar, text="", image=self.logo_image)
+            else:
+                self.logo_label = ctk.CTkLabel(self.sidebar, text="Romifleur", font=ctk.CTkFont(size=20, weight="bold"))
+            
+            # 2. Window Icon (Taskbar/Mini)
+            mini_logo_path = os.path.join(base_path, "logo-romifleur-mini.png")
+            if os.path.exists(mini_logo_path):
+                from PIL import ImageTk
+                icon_image = Image.open(mini_logo_path)
+                self.icon_photo = ImageTk.PhotoImage(icon_image)
+                self.wm_iconphoto(False, self.icon_photo)
+            
+        except Exception as e:
+            print(f"Error loading logos: {e}")
+            if not hasattr(self, 'logo_label'):
+                self.logo_label = ctk.CTkLabel(self.sidebar, text="Romifleur", font=ctk.CTkFont(size=20, weight="bold"))
+                
         self.logo_label.pack(padx=20, pady=20)
         
         # Open Folder Button
