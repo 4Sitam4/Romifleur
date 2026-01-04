@@ -108,6 +108,13 @@
             "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%20Portable/",
             "exts": [".zip", ".7z", ".iso"],
             "best_games": ["God of War: Ghost of Sparta", "Persona 3 Portable", "Crisis Core", "Metal Gear Solid: Peace Walker", "Monster Hunter Freedom Unite"]
+        },
+        "PS2": {
+            "name": "PlayStation 2",
+            "folder": "ps2",
+            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%202/",
+            "exts": [".zip", ".7z", ".iso", ".bin"],
+            "best_games": ["Grand Theft Auto: San Andreas", "Metal Gear Solid 3", "Final Fantasy X", "God of War II", "Shadow of the Colossus"]
         }
     },
     "Other": {
