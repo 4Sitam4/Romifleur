@@ -173,13 +173,49 @@ class App(ctk.CTk):
         self.export_btn = ctk.CTkButton(self.queue_actions_frame, text="Save List 💾", width=80, fg_color="#555", command=self._export_queue)
         self.export_btn.pack(side="left", padx=(0, 5), expand=True, fill="x")
         
-        self.import_btn = ctk.CTkButton(self.queue_actions_frame, text="Load List 📂", width=80, fg_color="#555", command=self._import_queue)
+        self.import_btn = ctk.CTkButton(self.queue_actions_frame, text="Load 📂", width=80, fg_color="#555", command=self._import_queue)
         self.import_btn.pack(side="left", padx=(5, 0), expand=True, fill="x")
+        
+        self.clear_btn = ctk.CTkButton(self.queue_sidebar, text="Clear All 🗑️", fg_color="#AA0000", command=self._clear_queue)
+        self.clear_btn.pack(padx=20, pady=(10, 20), fill="x")
         
         self.progress_bar = ctk.CTkProgressBar(self.queue_sidebar, orientation="horizontal")
         self.progress_bar.set(0)
         self.progress_bar.pack(padx=20, pady=(0, 20), fill="x")
         self.progress_bar.pack_forget()
+
+    def _clear_queue(self):
+        self.download_queue = []
+        self._update_queue_ui()
+        self.info_label.configure(text="Queue cleared.")
+
+    def _remove_from_queue(self, index):
+        if 0 <= index < len(self.download_queue):
+            del self.download_queue[index]
+            self._update_queue_ui()
+
+    def _update_queue_ui(self):
+        # Clear frame
+        for widget in self.queue_list_frame.winfo_children():
+            widget.destroy()
+            
+        for i, (cat, console, filename) in enumerate(self.download_queue):
+            # Container
+            item_frame = ctk.CTkFrame(self.queue_list_frame, fg_color="transparent")
+            item_frame.pack(fill="x", pady=2)
+            
+            # Remove Button
+            remove_btn = ctk.CTkButton(item_frame, text="❌", width=30, height=20, fg_color="darkred", 
+                                       command=lambda idx=i: self._remove_from_queue(idx))
+            remove_btn.pack(side="right", padx=(5, 0))
+            
+            # Label
+            # Get clean name for display
+            display_name = filename[:22] + "..." if len(filename) > 22 else filename
+            lbl = ctk.CTkLabel(item_frame, text=f"[{console}] {display_name}", anchor="w", height=20)
+            lbl.pack(side="left", fill="x", expand=True)
+            
+        self.queue_status_label.configure(text=f"{len(self.download_queue)} items in queue")
 
     def _export_queue(self):
         import json
@@ -387,20 +423,6 @@ class App(ctk.CTk):
                 
         self._update_queue_ui()
         self.info_label.configure(text=f"Added {count} items to queue.")
-
-    def _update_queue_ui(self):
-        # Clear frame
-        for widget in self.queue_list_frame.winfo_children():
-            widget.destroy()
-            
-        for i, (cat, console, filename) in enumerate(self.download_queue):
-            # Show small label
-            # Get clean name for display
-            display_name = filename[:25] + "..." if len(filename) > 25 else filename
-            lbl = ctk.CTkLabel(self.queue_list_frame, text=f"[{console}] {display_name}", anchor="w", height=20)
-            lbl.pack(fill="x", pady=0)
-            
-        self.queue_status_label.configure(text=f"{len(self.download_queue)} items in queue")
 
     def _start_queue_download(self):
         if not self.download_queue: return
