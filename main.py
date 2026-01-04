@@ -14,7 +14,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.VERSION = "v1.0.1"
+        self.VERSION = "v1.0.4"
 
         # Window
         self.title(f"Romifleur {self.VERSION}")
