@@ -19,11 +19,22 @@ class RomManager:
         }
 
     def _load_catalog(self):
+        import sys
+        
+        def resource_path(relative_path):
+            """ Get absolute path to resource, works for dev and for PyInstaller """
+            try:
+                # PyInstaller creates a temp folder and stores path in _MEIPASS
+                base_path = sys._MEIPASS
+            except Exception:
+                base_path = os.path.abspath(".")
+            return os.path.join(base_path, relative_path)
+
         try:
-            with open(self.catalog_path, 'r') as f:
+            # Use resource_path to find the json file inside the bundle
+            path = resource_path(self.catalog_path)
+            with open(path, 'r') as f:
                 data = json.load(f)
-            # Flatten the nested provider structure for easier access if needed
-            # But UI might want categories. Let's keep it but provide a helper.
             return data
         except FileNotFoundError:
             return {}

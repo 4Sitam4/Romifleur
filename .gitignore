@@ -8,3 +8,7 @@ ROMs/
 
 # Temporary files
 *.tmp
+
+# PyInstaller
+build/
+dist/

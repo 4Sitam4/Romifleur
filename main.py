@@ -456,5 +456,13 @@ class App(ctk.CTk):
         self._open_roms_folder() # Auto open folder?
         
 if __name__ == "__main__":
+    # Fix Taskbar Icon grouping
+    try:
+        from ctypes import windll
+        myappid = 'romifleur.v2.gui'
+        windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except ImportError:
+        pass
+        
     app = App()
     app.mainloop()
