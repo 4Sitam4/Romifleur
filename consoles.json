@@ -1,0 +1,136 @@
+{
+    "Nintendo": {
+        "NES": {
+            "name": "Nintendo Entertainment System",
+            "folder": "nes",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20Entertainment%20System%20(Headered)/",
+            "exts": [".zip", ".7z", ".nes"],
+            "best_games": ["Super Mario Bros. 3", "Legend of Zelda", "Metroid", "Mega Man 2", "Castlevania III"]
+        },
+        "SNES": {
+            "name": "Super Nintendo",
+            "folder": "snes",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/",
+            "exts": [".zip", ".7z", ".sfc"],
+            "best_games": ["Chrono Trigger", "Link to the Past", "Super Metroid", "Final Fantasy III", "Donkey Kong Country"]
+        },
+        "N64": {
+            "name": "Nintendo 64",
+            "folder": "n64",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%2064%20(BigEndian)/",
+            "exts": [".zip", ".7z", ".z64", ".n64"],
+            "best_games": ["Ocarina of Time", "Super Mario 64", "GoldenEye 007", "Majora's Mask", "Mario Kart 64"]
+        },
+        "GameCube": {
+            "name": "GameCube",
+            "folder": "gamecube",
+            "url": "https://myrient.erista.me/files/Redump/Nintendo%20-%20GameCube%20-%20NKit%20RVZ%20%5Bzstd-19-128k%5D/",
+            "exts": [".zip", ".7z", ".rvz"],
+            "best_games": ["Metroid Prime", "Super Smash Bros. Melee", "Wind Waker", "Resident Evil 4", "Twilight Princess"]
+        },
+        "GB": {
+            "name": "Game Boy",
+            "folder": "gb",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy/",
+            "exts": [".zip", ".7z", ".gb"],
+            "best_games": ["Tetris", "Link's Awakening", "Pokemon Red", "Super Mario Land 2", "Gargoyle's Quest"]
+        },
+        "GBC": {
+            "name": "Game Boy Color",
+            "folder": "gbc",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Color/",
+            "exts": [".zip", ".7z", ".gbc"],
+            "best_games": ["Pokemon Gold", "Oracle of Ages", "Oracle of Seasons", "Shantae", "Metal Gear Solid"]
+        },
+        "GBA": {
+            "name": "Game Boy Advance",
+            "folder": "gba",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/",
+            "exts": [".zip", ".7z", ".gba"],
+            "best_games": ["Aria of Sorrow", "Metroid Fusion", "Minish Cap", "Golden Sun", "Advance Wars"]
+        },
+        "NDS": {
+            "name": "Nintendo DS",
+            "folder": "nds",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20DS%20(Decrypted)/",
+            "exts": [".zip", ".7z", ".nds"],
+            "best_games": ["Mario Kart DS", "Chrono Trigger", "HeartGold", "Bowser's Inside Story", "Phantom Hourglass"]
+        }
+    },
+    "Sega": {
+        "MasterSystem": {
+            "name": "Master System",
+            "folder": "mastersystem",
+            "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%20Master%20System%20-%20Mark%20III/",
+            "exts": [".zip", ".7z", ".sms"],
+            "best_games": ["Alex Kidd in Miracle World", "Wonder Boy III: The Dragon's Trap", "Phantasy Star", "Sonic the Hedgehog", "Psycho Fox"]
+        },
+        "MegaDrive": {
+            "name": "Mega Drive / Genesis",
+            "folder": "megadrive",
+            "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%20Mega%20Drive%20-%20Genesis/",
+            "exts": [".zip", ".7z", ".md", ".bin"],
+            "best_games": ["Sonic 2", "Streets of Rage 2", "Gunstar Heroes", "Phantasy Star IV", "Shinobi III"]
+        },
+        "Saturn": {
+            "name": "Sega Saturn",
+            "folder": "saturn",
+            "url": "https://myrient.erista.me/files/Redump/Sega%20-%20Saturn/",
+            "exts": [".zip", ".7z", ".bin", ".cue"],
+            "best_games": ["Panzer Dragoon Saga", "Nights into Dreams", "Sega Rally", "Virtua Fighter 2", "Radiant Silvergun"]
+        },
+        "Dreamcast": {
+            "name": "Dreamcast",
+            "folder": "dreamcast",
+            "url": "https://myrient.erista.me/files/Redump/Sega%20-%20Dreamcast/",
+            "exts": [".zip", ".7z", ".gdi", ".chd"],
+            "best_games": ["SoulCalibur", "Jet Set Radio", "Shenmue", "Marvel vs. Capcom 2", "Crazy Taxi"]
+        },
+        "GameGear": {
+            "name": "Game Gear",
+            "folder": "gamegear",
+            "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%20Game%20Gear/",
+            "exts": [".zip", ".7z", ".gg"],
+            "best_games": ["Sonic Chaos", "GG Shinobi", "Ax Battler", "Defenders of Oasis", "Columns"]
+        }
+    },
+    "Sony": {
+        "PS1": {
+            "name": "PlayStation 1",
+            "folder": "psx",
+            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation/",
+            "exts": [".zip", ".7z", ".chd", ".bin"],
+            "best_games": ["Metal Gear Solid", "Final Fantasy VII", "Symphony of the Night", "Tekken 3", "Resident Evil 2"]
+        },
+        "PSP": {
+            "name": "PlayStation Portable",
+            "folder": "psp",
+            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%20Portable/",
+            "exts": [".zip", ".7z", ".iso"],
+            "best_games": ["God of War: Ghost of Sparta", "Persona 3 Portable", "Crisis Core", "Metal Gear Solid: Peace Walker", "Monster Hunter Freedom Unite"]
+        }
+    },
+    "Other": {
+        "NeoGeo": {
+            "name": "Neo Geo Pocket Color",
+            "folder": "ngpc",
+            "url": "https://myrient.erista.me/files/No-Intro/SNK%20-%20NeoGeo%20Pocket%20Color/",
+            "exts": [".zip", ".7z", ".ngc"],
+            "best_games": ["Metal Slug", "King of Fighters", "Samurai Shodown", "Last Blade", "Garou"]
+        },
+        "PC_Engine": {
+            "name": "PC Engine / TurboGrafx-16",
+            "folder": "pcengine",
+            "url": "https://myrient.erista.me/files/No-Intro/NEC%20-%20PC%20Engine%20-%20TurboGrafx-16/",
+            "exts": [".zip", ".7z", ".pce"],
+            "best_games": ["R-Type", "Bonk's Adventure", "Bomberman '93", "Ninja Spirit", "Ys Book I & II"]
+        },
+        "Atari2600": {
+            "name": "Atari 2600",
+            "folder": "atari2600",
+            "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%20Atari%202600/",
+            "exts": [".zip", ".7z", ".a26"],
+            "best_games": ["Pitfall!", "River Raid", "Space Invaders", "Adventure", "Yars' Revenge"]
+        }
+    }
+}
