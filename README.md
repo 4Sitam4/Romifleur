@@ -32,7 +32,8 @@
 6.  **Download**: Click **"Start Downloads 🚀"** in the right panel to begin.
 6.  **Download**: Click **"Start Downloads 🚀"** in the right panel to begin.
 7.  **(Optional)** Click **"Settings ⚙️"** to change the download destination folder.
-8.  **Play**: Click "Open ROMs Folder" to access your downloaded files, automatically organized by console.
+8.  **(Optional - RetroAchievements)** In **Settings**, enter your **Web API Key** (found in your [RetroAchievements Control Panel](https://retroachievements.org/controlpanel.php)) to enable compatibility badges (🏆).
+9.  **Play**: Click "Open ROMs Folder" to access your downloaded files, automatically organized by console.
 
 ### Development & Compilation
 **Requirements:**
@@ -87,7 +88,8 @@ The output file will be located in the `dist/` folder.
 6.  **Télécharger** : Cliquez sur **"Start Downloads 🚀"** dans le panneau de droite pour lancer les téléchargements.
 6.  **Télécharger** : Cliquez sur **"Start Downloads 🚀"** dans le panneau de droite pour lancer les téléchargements.
 7.  **(Optionnel)** Cliquez sur **"Settings ⚙️"** pour changer le dossier de destination.
-8.  **Jouer** : Cliquez sur "Open ROMs Folder" pour accéder à vos fichiers, automatiquement triés par console.
+8.  **(Optionnel - RetroAchievements)** Dans **Settings**, entrez votre **Web API Key** (trouvable dans votre [Panneau de configuration RetroAchievements](https://retroachievements.org/controlpanel.php)) pour activer les badges de compatibilité (🏆).
+9.  **Jouer** : Cliquez sur "Open ROMs Folder" pour accéder à vos fichiers, automatiquement triés par console.
 
 ### Développement et Compilation
 **Prérequis :**
