@@ -12,3 +12,8 @@ ROMs/
 # PyInstaller
 build/
 dist/
+
+# Settings & Secrets
+settings.json
+ra_cache.json
+settings.json
