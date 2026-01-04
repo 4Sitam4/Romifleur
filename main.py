@@ -14,13 +14,20 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.VERSION = "v1.0.4"
+        self.VERSION = "v1.0.5"
 
+        # Manager
+        self.manager = RomManager()
+        
+        # RA Manager
+        from ra_manager import RetroAchievementsManager
+        ra_key = self.manager.settings.get("ra_api_key", "")
+        self.ra = RetroAchievementsManager(ra_key)
+        
         # Window
         self.title(f"Romifleur {self.VERSION}")
         self.geometry("1300x700") # Wider for Queue
         
-        self.manager = RomManager()
         self.selected_category = None
         self.selected_console = None
         self.download_queue = [] # List of (Category, Console, Filename)
@@ -75,8 +82,9 @@ class App(ctk.CTk):
         self.open_folder_btn.pack(padx=20, pady=(0, 10))
 
         # Settings Button
-        self.settings_btn = ctk.CTkButton(self.sidebar, text="Settings ⚙️", fg_color="#444", command=self._open_settings)
-        self.settings_btn.pack(padx=20, pady=(0, 20))
+        self.settings_btn = ctk.CTkButton(self.sidebar, text="Settings ⚙️", fg_color="transparent", border_width=1, 
+                                          command=self._open_settings_window)
+        self.settings_btn.pack(side="bottom", padx=20, pady=20, fill="x")
         
         # Scrollable list for consoles
         self.console_list_frame = ctk.CTkScrollableFrame(self.sidebar, label_text="Consoles")
@@ -126,14 +134,16 @@ class App(ctk.CTk):
         self.style.map("Treeview", background=[('selected', '#1f538d')])
         
         # Add "Select" column for checkboxes
-        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "Name", "Status"), show="headings", selectmode="extended")
+        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "RA", "Name", "Status"), show="headings", selectmode="extended")
         self.tree.heading("Select", text="[x]")
+        self.tree.heading("RA", text="Supported")
         self.tree.heading("Name", text="Game Title")
         self.tree.heading("Status", text="Status")
         
         self.tree.column("Select", width=40, anchor="center")
-        self.tree.column("Name", width=400)
-        self.tree.column("Status", width=100, anchor="center")
+        self.tree.column("RA", width=80, anchor="center")
+        self.tree.column("Name", width=450)
+        self.tree.column("Status", width=80)
         
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.tree.bind("<Button-1>", self._on_tree_click) # Bind click for checkboxes
@@ -278,6 +288,77 @@ class App(ctk.CTk):
             self.manager.save_settings()
             self.info_label.configure(text=f"Download path set to: {path}")
 
+    def _open_settings_window(self):
+        # Create Toplevel window
+        settings_win = ctk.CTkToplevel(self)
+        settings_win.title("Settings")
+        settings_win.geometry("500x400")
+        settings_win.grab_set() # Modal interaction
+        
+        # Title
+        ctk.CTkLabel(settings_win, text="Settings", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=10)
+        
+        # --- ROMs Directory Section ---
+        rom_frame = ctk.CTkFrame(settings_win)
+        rom_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(rom_frame, text="ROMs Directory:", anchor="w").pack(fill="x", padx=10, pady=(10, 0))
+        
+        path_frame = ctk.CTkFrame(rom_frame, fg_color="transparent")
+        path_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.path_entry = ctk.CTkEntry(path_frame)
+        self.path_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.path_entry.insert(0, self.manager.get_download_path())
+        self.path_entry.configure(state="readonly")
+        
+        browse_btn = ctk.CTkButton(path_frame, text="Browse", width=80, command=self._browse_rom_path_settings)
+        browse_btn.pack(side="left")
+        
+        # --- RetroAchievements Section ---
+        ra_frame = ctk.CTkFrame(settings_win)
+        ra_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(ra_frame, text="RetroAchievements Integration:", anchor="w", font=ctk.CTkFont(weight="bold")).pack(fill="x", padx=10, pady=(10, 5))
+        
+        # API Key
+        ctk.CTkLabel(ra_frame, text="Web API Key:", anchor="w").pack(fill="x", padx=10)
+        self.ra_key_entry = ctk.CTkEntry(ra_frame)
+        self.ra_key_entry.pack(fill="x", padx=10, pady=(0, 10))
+        self.ra_key_entry.insert(0, self.manager.settings.get("ra_api_key", ""))
+        
+        # Save Button
+        ctk.CTkButton(settings_win, text="Save Settings", fg_color="green", 
+                      command=lambda: self._save_settings_close(settings_win)).pack(pady=20)
+
+    def _browse_rom_path_settings(self):
+        from tkinter import filedialog
+        path = filedialog.askdirectory()
+        if path:
+            self.path_entry.configure(state="normal")
+            self.path_entry.delete(0, "end")
+            self.path_entry.insert(0, path)
+            self.path_entry.configure(state="readonly")
+
+    def _save_settings_close(self, window):
+        # Update settings dict
+        new_path = self.path_entry.get()
+        ra_key = self.ra_key_entry.get().strip()
+        
+        self.manager.settings["roms_path"] = new_path
+        self.manager.settings["ra_api_key"] = ra_key
+        # Remove old username if present
+        if "ra_user" in self.manager.settings:
+             del self.manager.settings["ra_user"]
+        
+        self.manager.save_settings()
+        
+        # Update Managers
+        self.ra.api_key = ra_key
+        
+        window.destroy()
+        self.info_label.configure(text="Settings saved.")
+
     def _populate_console_list(self):
         # Clear existing
         for widget in self.console_list_frame.winfo_children():
@@ -371,21 +452,51 @@ class App(ctk.CTk):
         query = self.search_var.get()
         results = self.manager.search(self.selected_category, self.selected_console, query)
         
+        self._update_game_list(results)
+
+    def _update_game_list(self, files=None):
+        if files is None: files = []
+        
+        # Clear list
         self.tree.delete(*self.tree.get_children())
-        for r in results:
-            self.tree.insert("", "end", values=("☐", r, "Online"))
+        
+        # RA Pre-fetch for current console
+        ra_games = []
+        if self.selected_console:
+             ra_games = self.ra.get_supported_games(self.selected_console)
+
+        for f in files:
+            # Check RA compatibility
+            is_ra = False
+            if ra_games:
+                is_ra = self.ra.is_compatible(f, ra_games)
+            
+            ra_icon = "🏆" if is_ra else "❌"
+            
+            # Using tags to colorize lines if needed
+            self.tree.insert("", "end", values=("☐", ra_icon, f, "Online"), tags=("ra" if is_ra else "normal",))
+
+        # Optional: Color for RA games?
+        # self.tree.tag_configure("ra", foreground="#FFD700") # Gold color
 
     def _on_tree_click(self, event):
         region = self.tree.identify("region", event.x, event.y)
         if region == "cell":
             column = self.tree.identify_column(event.x)
-            if column == "#1": 
+            if column == "#1": # The Select column
                 item_id = self.tree.identify_row(event.y)
-                current_values = self.tree.item(item_id, "values")
-                if current_values:
-                    new_val = "☑" if current_values[0] == "☐" else "☐"
-                    self.tree.item(item_id, values=(new_val, current_values[1], current_values[2]))
-                    return "break"
+                if item_id:
+                    current_values = self.tree.item(item_id, "values")
+                    # Toggle checkbox character
+                    new_char = "☑" if current_values[0] == "☐" else "☐"
+                    # Start selection if checked
+                    if new_char == "☑":
+                        self.tree.selection_add(item_id)
+                    else:
+                         self.tree.selection_remove(item_id)
+                         
+                    # Update values - Tuple is (Select, RA, Name, Status)
+                    self.tree.item(item_id, values=(new_char, current_values[1], current_values[2], current_values[3]))
 
     def _select_all_toggle(self):
         children = self.tree.get_children()
@@ -404,14 +515,15 @@ class App(ctk.CTk):
         config = self.manager.consoles.get(self.selected_category, {}).get(self.selected_console, {})
         best = config.get("best_games", [])
         
-        self.tree.delete(*self.tree.get_children())
-        
         # Get all available files
         available = self.manager.cache.get(f"{self.selected_category}_{self.selected_console}", [])
-        
-        # We need to filter 'available' by current filters first (Region, Exclude)
-        # using the manager's search logic slightly adapted or just manual filtering here.
-        # Let's filter available list first using strict filters to remove unwanted regions/demos
+        if not available:
+            # Try to fetch if empty (though best games button usually pressed after load)
+            # But async fetching is tricky here. Let's assume list is loaded.
+            self.info_label.configure(text="Please load game list first.")
+            return
+
+        # Filter available list first
         filtered_available = []
         region_filter = self.manager.filters.get("region", [])
         exclude_filter = self.manager.filters.get("exclude", [])
@@ -426,35 +538,27 @@ class App(ctk.CTk):
             
             filtered_available.append(f)
 
-        # Now search for best games in filtered list
+        # Find best matches
+        found_files = []
         for bg in best:
             matches = []
             for av in filtered_available:
-                # Check containment. 
-                # Be careful: "Metroid" matches "Metroid Fusion" and "Super Metroid".
-                # We want robust matching. 
-                # A simple heuristic: av name must contain bg name.
-                # And to avoid "Metroid" matching "Super Metroid", maybe check word start?
-                # For now simple containment is used but let's score them.
                 if bg.lower() in av.lower():
                     score = self.manager._get_score(av)
                     matches.append((score, av))
             
             if matches:
-                # Deduplicate: Pick the HIGHEST score.
+                # Deduplicate: Pick the HIGHEST score
                 matches.sort(key=lambda x: x[0], reverse=True)
                 best_match = matches[0][1]
-                
-                # Check if we already added it (prevent duplicates if multiple best games match same file)
-                # Not easy to check tree efficiently, but list is small.
-                exists = False
-                for child in self.tree.get_children():
-                    if self.tree.item(child)["values"][1] == best_match:
-                        exists = True
-                        break
-                
-                if not exists:
-                     self.tree.insert("", "end", values=("☐", best_match, "Best Of"))
+                if best_match not in found_files:
+                    found_files.append(best_match)
+
+        if not found_files:
+             self.info_label.configure(text=f"No best games found matching rules.")
+        
+        # USE THE SHARED UPDATE METHOD to ensure columns/icons are correct
+        self._update_game_list(found_files)
 
     # --- New Queue Methods ---
 
@@ -479,12 +583,12 @@ class App(ctk.CTk):
         for item in self.tree.get_children():
             vals = self.tree.item(item, "values")
             if vals[0] == "☑":
-                checked_items.append(vals[1])
+                checked_items.append(vals[2]) # Changed from vals[1] to vals[2] to get filename
         
         if not checked_items:
             selected_items = self.tree.selection()
             if selected_items:
-               checked_items = [self.tree.item(i)['values'][1] for i in selected_items]
+               checked_items = [self.tree.item(i)['values'][2] for i in selected_items] # Changed from vals[1] to vals[2]
         
         if not checked_items: return
     
