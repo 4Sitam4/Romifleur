@@ -2,7 +2,7 @@
 
 ![Romifleur Logo](logo-romifleur.png)
 
-![Romifleur Screenshot](screenshot.png)
+![Romifleur Screenshot](Romifleur_screen.png)
 
 ---
 
