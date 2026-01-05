@@ -127,23 +127,45 @@ class App(ctk.CTk):
         self.tree_frame.grid_columnconfigure(0, weight=1)
         self.tree_frame.grid_rowconfigure(0, weight=1)
         
+        # Scale Treeview for high DPI
+        try:
+            scaling = self._get_window_scaling()
+        except AttributeError:
+            scaling = 1.0
+            
+        font_size = int(14 * scaling)
+        heading_font_size = int(13 * scaling)
+        row_height = int(30 * scaling)
+
         self.style = ttk.Style()
         self.style.theme_use("clam")
-        self.style.configure("Treeview", background="#2b2b2b", fieldbackground="#2b2b2b", foreground="white", borderwidth=0)
-        self.style.configure("Treeview.Heading", background="#1f1f1f", foreground="white", relief="flat")
+        self.style.configure("Treeview", background="#2b2b2b", 
+                            fieldbackground="#2b2b2b", 
+                            foreground="white", 
+                            borderwidth=0,
+                            font=("Arial", font_size),
+                            rowheight=row_height)
+        
+        self.style.configure("Treeview.Heading", 
+                            background="#1f1f1f", 
+                            foreground="white", 
+                            relief="flat",
+                            font=("Arial", heading_font_size, "bold"))
         self.style.map("Treeview", background=[('selected', '#1f538d')])
         
-        # Add "Select" column for checkboxes
-        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "RA", "Name", "Status"), show="headings", selectmode="extended")
-        self.tree.heading("Select", text="[x]")
-        self.tree.heading("RA", text="RA Supported")
-        self.tree.heading("Name", text="Game Title")
-        self.tree.heading("Status", text="Status")
+        # Scale column widths
+        select_width = int(40 * scaling)
+        ra_width = int(40 * scaling)
         
-        self.tree.column("Select", width=40, anchor="center")
-        self.tree.column("RA", width=80, anchor="center")
+        # Add "Select" column for checkboxes
+        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "RA", "Name"), show="headings", selectmode="extended")
+        self.tree.heading("Select", text="[x]")
+        self.tree.heading("RA", text="RA")
+        self.tree.heading("Name", text="Game Title")
+        
+        self.tree.column("Select", width=select_width, stretch=False, anchor="center")
+        self.tree.column("RA", width=ra_width, stretch=False, anchor="center")
         self.tree.column("Name", width=450)
-        self.tree.column("Status", width=80)
         
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.tree.bind("<Button-1>", self._on_tree_click) # Bind click for checkboxes
@@ -478,7 +500,7 @@ class App(ctk.CTk):
             ra_icon = "🏆" if is_ra else "❌"
             
             # Using tags to colorize lines if needed
-            self.tree.insert("", "end", values=("☐", ra_icon, f, "Online"), tags=("ra" if is_ra else "normal",))
+            self.tree.insert("", "end", values=("☐", ra_icon, f), tags=("ra" if is_ra else "normal",))
 
         # Optional: Color for RA games?
         # self.tree.tag_configure("ra", foreground="#FFD700") # Gold color
@@ -499,8 +521,8 @@ class App(ctk.CTk):
                     else:
                          self.tree.selection_remove(item_id)
                          
-                    # Update values - Tuple is (Select, RA, Name, Status)
-                    self.tree.item(item_id, values=(new_char, current_values[1], current_values[2], current_values[3]))
+                    # Update values - Tuple is (Select, RA, Name)
+                    self.tree.item(item_id, values=(new_char, current_values[1], current_values[2]))
 
     def _select_all_toggle(self):
         children = self.tree.get_children()
