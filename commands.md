@@ -46,3 +46,8 @@ Remove-Item -Recurse -Force build, dist
 Remove-Item -Recurse -Force __pycache__
 Remove-Item Romifleur.spec
 ```
+
+Pour faire une release, il faut:
+
+❯ git tag v1.0.7
+❯ git push origin main --tags
