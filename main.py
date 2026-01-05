@@ -136,7 +136,7 @@ class App(ctk.CTk):
         # Add "Select" column for checkboxes
         self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "RA", "Name", "Status"), show="headings", selectmode="extended")
         self.tree.heading("Select", text="[x]")
-        self.tree.heading("RA", text="Supported")
+        self.tree.heading("RA", text="RA Supported")
         self.tree.heading("Name", text="Game Title")
         self.tree.heading("Status", text="Status")
         
