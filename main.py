@@ -485,6 +485,7 @@ class App(ctk.CTk):
         
         # Clear list
         self.tree.delete(*self.tree.get_children())
+        self.tree.yview_moveto(0) # Reset scroll to top
         
         # RA Pre-fetch for current console
         ra_games = []
