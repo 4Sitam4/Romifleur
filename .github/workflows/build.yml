@@ -41,8 +41,55 @@ jobs:
         name: Romifleur-Windows
         path: dist/Romifleur.exe
 
+  build-macos:
+    runs-on: macos-14  # Runner Apple Silicon (M1)
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'  # 3.11 recommandé pour macOS ARM
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install customtkinter requests beautifulsoup4 pillow pyinstaller py7zr
+        
+    - name: Generate Icon (if missing)
+      run: |
+        python -c "
+        from PIL import Image
+        import os
+        if os.path.exists('logo-romifleur-mini.png'):
+            img = Image.open('logo-romifleur-mini.png')
+        else:
+            img = Image.new('RGB', (256, 256))
+        img.save('icon.icns', format='ICNS')
+        "
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --noconsole --onefile --icon=icon.icns --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
+
+    - name: Create DMG
+      run: |
+        # Créer un dossier pour le DMG
+        mkdir -p dmg_content
+        cp dist/Romifleur dmg_content/
+        
+        # Créer le DMG
+        hdiutil create -volname "Romifleur" -srcfolder dmg_content -ov -format UDZO Romifleur-macOS-ARM.dmg
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Romifleur-macOS-ARM
+        path: Romifleur-macOS-ARM.dmg
+
   release:
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     
@@ -51,11 +98,19 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: Romifleur-Windows
-        path: dist
+        path: dist-windows
+        
+    - name: Download macOS Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: Romifleur-macOS-ARM
+        path: dist-macos
         
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: dist/Romifleur.exe
+        files: |
+          dist-windows/Romifleur.exe
+          dist-macos/Romifleur-macOS-ARM.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
