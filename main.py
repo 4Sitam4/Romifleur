@@ -293,6 +293,10 @@ class App(ctk.CTk):
         settings_win = ctk.CTkToplevel(self)
         settings_win.title("Settings")
         settings_win.geometry("500x400")
+        
+        # Linux fix: Ensure window is visible before grab_set
+        settings_win.update_idletasks()
+        settings_win.wait_visibility()
         settings_win.grab_set() # Modal interaction
         
         # Title
