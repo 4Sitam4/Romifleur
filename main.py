@@ -561,7 +561,22 @@ class App(ctk.CTk):
             
             # Region (Strict if set)
             if region_filter:
-                if not any(r.lower() in f.lower() for r in region_filter): continue
+                # Regex parsing for robustness (shared logic with rom_manager)
+                import re
+                is_match = False
+                file_tags = []
+                param_groups = re.findall(r'\((.*?)\)', f)
+                for group in param_groups:
+                    parts = [p.strip().lower() for p in group.split(',')]
+                    file_tags.extend(parts)
+                
+                for r in region_filter:
+                    clean_r = r.lower().replace('(', '').replace(')', '').strip()
+                    if clean_r in file_tags:
+                        is_match = True
+                        break
+                
+                if not is_match: continue
             
             filtered_available.append(f)
 

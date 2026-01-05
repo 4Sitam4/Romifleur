@@ -134,13 +134,31 @@ class RomManager:
                     break
             if is_excluded: continue
 
-            # 3. Region Filter (Strict if list is not empty)
+            # 3. Region Filter
             if self.filters["region"]:
                 is_region_match = False
+                
+                # Extract tags from filename: e.g. "Game (USA, Europe)" -> ["USA, Europe"]
+                # Then split commas -> ["USA", "Europe"]
+                file_tags = []
+                param_groups = re.findall(r'\((.*?)\)', f)
+                for group in param_groups:
+                    parts = [p.strip().lower() for p in group.split(',')]
+                    file_tags.extend(parts)
+                
                 for r in self.filters["region"]:
-                     if r.lower() in f.lower():
-                         is_region_match = True
-                         break
+                    # Clean filter: "(USA)" -> "usa"
+                    clean_r = r.lower().replace('(', '').replace(')', '').strip()
+                    
+                    # Check exact match in file tags (safe)
+                    if clean_r in file_tags:
+                        is_region_match = True
+                        break
+                    
+                    # Fallback: if filter is "(Europe)" but tag is "En,Fr,De", we might not match.
+                    # But the user issue is specifically about "USA" in "(USA, Canada)".
+                    # For that case: "usa" is in ["usa", "canada"]. It works.
+
                 if not is_region_match:
                     continue
             
