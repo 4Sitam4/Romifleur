@@ -55,6 +55,13 @@
             "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20DS%20(Decrypted)/",
             "exts": [".zip", ".7z", ".nds"],
             "best_games": ["Mario Kart DS", "Chrono Trigger", "HeartGold", "Bowser's Inside Story", "Phantom Hourglass"]
+        },
+        "3DS": {
+            "name": "Nintendo 3DS",
+            "folder": "3ds",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%203DS%20%28Decrypted%29//",
+            "exts": [".zip", ".7z", ".3ds", ".cia"],
+            "best_games": ["Pokemon Y", "Legend of Zelda, The - Ocarina of Time 3D", "Fire Emblem - Awakening", "Legend of Zelda, The - A Link Between Worlds", "Shovel Knight", "Super Mario 3D Land", "Legend of Zelda, The - Majora's Mask 3D"]
         }
     },
     "Sega": {
