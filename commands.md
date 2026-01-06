@@ -47,7 +47,21 @@ Remove-Item -Recurse -Force __pycache__
 Remove-Item Romifleur.spec
 ```
 
-Pour faire une release, il faut:
+## 6. Faire une release : 
 
-❯ git tag v1.0.7
-❯ git push origin main --tags
+Pour faire une release, il faut:
+```
+git tag vX.X.X
+git push origin main --tags
+```
+## Commands build sur Arch Linux : 
+```
+# Activer l'environnement virtuel
+source .venv/bin/activate
+
+# Installer les dépendances
+pip install -r requirements.txt
+
+# Lancer la compilation
+pyinstaller Romifleur.spec
+```

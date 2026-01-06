@@ -19,7 +19,7 @@ class MainWindow(ctk.CTk):
         self._setup_layout()
         
     def _get_version(self):
-        return "v2.0.0 Refactor"
+        return "v1.2.0"
 
     def _setup_layout(self):
         self.grid_columnconfigure(1, weight=1)
