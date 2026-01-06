@@ -1,8 +1,10 @@
-
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 import threading
+import os
+from PIL import Image, ImageTk
+from src.utils.path_utils import resource_path
 
 class GameList(ctk.CTkFrame):
     def __init__(self, master, app_context, on_add_queue, **kwargs):
@@ -13,7 +15,24 @@ class GameList(ctk.CTkFrame):
         self.current_results = []
         self.selected_files = set()
         
+        self._load_icons()
         self._setup_ui()
+
+    def _load_icons(self):
+        assets_dir = resource_path("assets")
+        
+        def load_resize(name):
+            try:
+                path = os.path.join(assets_dir, name)
+                img = Image.open(path)
+                return ImageTk.PhotoImage(img.resize((20, 20), Image.Resampling.LANCZOS))
+            except Exception as e:
+                print(f"Error loading icon {name}: {e}")
+                return None
+
+        self.img_trophy = load_resize("Trophy_RA.png")
+        self.img_cross = load_resize("Cross_RA.png")
+        self.img_question = load_resize("QuestionMark_RA.png")
 
     def _setup_ui(self):
         self.grid_rowconfigure(2, weight=1)
@@ -94,13 +113,15 @@ class GameList(ctk.CTkFrame):
         select_width = int(40 * scaling)
         ra_width = int(40 * scaling)
 
-        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "RA", "Name"), show="headings", selectmode="extended")
-        self.tree.heading("Select", text="[x]")
-        self.tree.heading("RA", text="RA")
-        self.tree.heading("Name", text="Game Title")
+        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "Name"), show="tree headings", selectmode="extended")
         
+        self.tree.heading("#0", text="RA", anchor="center")
+        self.tree.column("#0", width=ra_width, stretch=False, anchor="center")
+        
+        self.tree.heading("Select", text="[x]", anchor="center")
         self.tree.column("Select", width=select_width, stretch=False, anchor="center")
-        self.tree.column("RA", width=ra_width, stretch=False, anchor="center")
+        
+        self.tree.heading("Name", text="Game Title", anchor="w")
         self.tree.column("Name", width=450)
         
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -150,11 +171,15 @@ class GameList(ctk.CTkFrame):
         
         # Fetch RA support
         ra_games = self.app.ra_manager.get_supported_games(self.current_console)
+        api_key = self.app.ra_manager.api_key
         
         for f in files:
-            is_ra = self.app.ra_manager.is_compatible(f, ra_games)
-            ra_icon = "🏆" if is_ra else "❌"
-            self.tree.insert("", "end", values=("☐", ra_icon, f))
+            img = self.img_question
+            if api_key:
+                is_ra = self.app.ra_manager.is_compatible(f, ra_games)
+                img = self.img_trophy if is_ra else self.img_cross
+            
+            self.tree.insert("", "end", text="", image=img, values=("☐", f))
             
         self.info_label.configure(text=f"{len(files)} games found")
 
@@ -167,7 +192,7 @@ class GameList(ctk.CTkFrame):
                 if row_id:
                     vals = self.tree.item(row_id, "values")
                     new_val = "☑" if vals[0] == "☐" else "☐"
-                    self.tree.item(row_id, values=(new_val, vals[1], vals[2]))
+                    self.tree.item(row_id, values=(new_val, vals[1]))
 
     def _toggle_select_all(self):
         children = self.tree.get_children()
@@ -176,7 +201,7 @@ class GameList(ctk.CTkFrame):
         new = "☑" if first == "☐" else "☐"
         for item in children:
             v = self.tree.item(item, "values")
-            self.tree.item(item, values=(new, v[1], v[2]))
+            self.tree.item(item, values=(new, v[1]))
 
     def _add_selected(self):
         items = []
@@ -184,13 +209,13 @@ class GameList(ctk.CTkFrame):
         for item in self.tree.get_children():
             vals = self.tree.item(item, "values")
             if vals[0] == "☑":
-                items.append(vals[2])
+                items.append(vals[1])
         
         # Check selection if no checkboxes
         if not items:
             for item in self.tree.selection():
                 vals = self.tree.item(item, "values")
-                items.append(vals[2])
+                items.append(vals[1])
                 
         if items and self.on_add_queue:
             self.on_add_queue(self.current_category, self.current_console, items)

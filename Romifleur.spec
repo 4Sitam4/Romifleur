@@ -2,11 +2,7 @@
 from PyInstaller.utils.hooks import collect_all
 import os
 
-datas = [
-    ('config/consoles.json', 'config'), 
-    ('assets/logo-romifleur.png', 'assets'), 
-    ('assets/logo-romifleur-mini.png', 'assets')
-]
+datas = [('config/consoles.json', 'config'), ('assets/logo-romifleur.png', '.'), ('assets/logo-romifleur-mini.png', '.'), ('assets', 'assets')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('customtkinter')
