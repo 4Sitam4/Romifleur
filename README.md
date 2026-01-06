@@ -60,6 +60,19 @@ pyinstaller --noconsole --onedir --icon=icon.ico --name Romifleur --add-data "co
 ```
 The output file will be located in the `dist/` folder.
 
+**Compiling for Linux:**
+Use `:` as separator.
+```bash
+pyinstaller --noconsole --onefile --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
+```
+
+**Running on Linux:**
+For the standalone binary (from Releases or built):
+```bash
+chmod +x Romifleur
+./Romifleur
+```
+
 ---
 
 ## 🇫🇷 Français
@@ -116,6 +129,19 @@ Utilisez `:` comme séparateur.
 pyinstaller --noconsole --onedir --icon=icon.ico --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
 ```
 Le fichier final se trouvera dans le dossier `dist/`.
+
+**Compiler pour Linux :**
+utilisez `:` comme séparateur.
+```bash
+pyinstaller --noconsole --onefile --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
+```
+
+**Lancer sur Linux :**
+Pour le binaire autonome (téléchargé ou compilé) :
+```bash
+chmod +x Romifleur
+./Romifleur
+```
 
 ---
 
