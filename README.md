@@ -14,7 +14,7 @@
 ### Features
 *   **Modern GUI**: A clean, dark-themed interface powered by CustomTkinter.
 *   **Multi-Console Support**: Access libraries for NES, SNES, N64, GameCube, PS1, PSP, Sega Genesis, Dreamcast, and more.
-*   **Rich Metadata Integration**: Thanks to **TheGamesDB**, view game thumbnails, descriptions, release dates, and more directly in the app.
+*   **Rich Metadata Integration**: Thanks to [**TheGamesDB**](https://thegamesdb.net/), view game thumbnails, descriptions, release dates, and more directly in the app.
 *   **Smart Search & Filtering**:
     *   Real-time search bar.
     *   **Region Filters**: Easily toggle between Europe, USA, and Japan versions.
@@ -83,75 +83,5 @@ chmod +x Romifleur
 
 ---
 
-## 🇫🇷 Français
-
-### Qu'est-ce que Romifleur ?
-**Romifleur** est une application de bureau moderne conçue pour simplifier la recherche et le téléchargement de ROMs de jeux rétro. Développée en Python avec CustomTkinter, elle offre une interface élégante pour naviguer dans les catalogues de nombreuses consoles classiques, remplaçant la navigation fastidieuse sur les sites d'archives.
-
-### Fonctionnalités
-*   **Interface Moderne** : Un design sombre et épuré propulsé par CustomTkinter.
-*   **Multi-Consoles** : Accès aux bibliothèques NES, SNES, N64, GameCube, PS1, PSP, Megadrive, Dreamcast, et bien plus.
-*   **Recherche et Filtres Intelligents** :
-    *   Recherche en temps réel.
-    *   **Filtres de Région** : Basculez facilement entre les versions Europe, USA et Japon.
-    *   **Liste Propre** : Option pour masquer automatiquement les Démos, Bêtas et Prototypes.
-*   **File d'Attente** : Ajoutez plusieurs jeux provenant de consoles différentes dans une liste d'attente globale.
-*   **Téléchargement par Lot** : Lancez le téléchargement de toute votre file d'attente en parallèle.
-*   **Dossier Personnalisé** : Choisissez où vos ROMs sont téléchargées (ex: directement sur une carte SD). L'app gère les sous-dossiers automatiquement.
-*   **Dédoublonnage** : Identifie et priorise automatiquement la meilleure version d'un jeu (ex: dernière révision, région préférée).
-
-### Utilisation
-1.  **Lancer l'App** : Ouvrez `Romifleur.exe` (ou lancez `main.py`).
-2.  **Choisir une Console** : Sélectionnez une plateforme dans le menu de gauche.
-3.  **Trouver des Jeux** : Utilisez la barre de recherche ou parcourez la liste.
-4.  **Sélectionner** : Cochez la case `[ ]` à côté des jeux ou utilisez le bouton "Select All".
-5.  **Ajouter à la File** : Cliquez sur **"Add to Queue ➡️"** pour les envoyer dans le panneau de droite.
-6.  **Télécharger** : Cliquez sur **"Start Downloads 🚀"** dans le panneau de droite pour lancer les téléchargements.
-6.  **Télécharger** : Cliquez sur **"Start Downloads 🚀"** dans le panneau de droite pour lancer les téléchargements.
-7.  **(Optionnel)** Cliquez sur **"Settings ⚙️"** pour changer le dossier de destination.
-8.  **(Optionnel - RetroAchievements)** Dans **Settings**, entrez votre **Web API Key** (trouvable dans votre [Panneau de configuration RetroAchievements](https://retroachievements.org/controlpanel.php)) pour activer les badges de compatibilité (🏆).
-9.  **Jouer** : Cliquez sur "Open ROMs Folder" pour accéder à vos fichiers, automatiquement triés par console.
-
-### Développement et Compilation
-**Prérequis :**
-*   Python 3.9+
-*   `pip install customtkinter requests beautifulsoup4 pillow pyinstaller py7zr`
-
-**Lancer depuis le code source :**
-```bash
-python main.py
-```
-
-Pour créer un exécutable autonome incluant toutes les ressources (icônes, base de données), **ouvrez un terminal à la racine du projet** et lancez :
-
-**Compiler en Exécutable (.exe) :**
-```bash
-pyinstaller --noconsole --onefile --icon=icon.ico --name Romifleur --add-data "consoles.json;." --add-data "logo-romifleur.png;." --add-data "logo-romifleur-mini.png;." --collect-all customtkinter main.py
-```
-Le fichier final se trouvera dans le dossier `dist/`.
-
-
-**Compiler pour MacOS (ARM) :**
-Utilisez `:` comme séparateur.
-```bash
-pyinstaller --noconsole --onedir --icon=icon.ico --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
-```
-Le fichier final se trouvera dans le dossier `dist/`.
-
-**Compiler pour Linux :**
-utilisez `:` comme séparateur.
-```bash
-pyinstaller --noconsole --onefile --name Romifleur --add-data "consoles.json:." --add-data "logo-romifleur.png:." --add-data "logo-romifleur-mini.png:." --collect-all customtkinter main.py
-```
-
-**Lancer sur Linux :**
-Pour le binaire autonome (téléchargé ou compilé) :
-```bash
-chmod +x Romifleur
-./Romifleur
-```
-
----
-
 ## Acknowledgements / Remerciements
-*   Thanks to **@mikeflystar** for providing the MacOS (ARM) compilation instructions. / Merci à **@mikeflystar** pour les instructions de compilation MacOS (ARM).
+*   Thanks to **@mikeflystar** for providing the MacOS (ARM) compilation instructions.
