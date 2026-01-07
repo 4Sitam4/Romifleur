@@ -75,57 +75,56 @@ class InfoPanel(ctk.CTkScrollableFrame):
     def _update_ui(self, data):
         self.clear()
         
-        # Cover
-        if data.get("image_url"):
-            # Load async image?
-            # Creating another thread for image loading might be excessive inside the UI update?
-            # Actually requests are blocking. 
-            # Ideally fetch image in the background thread too.
-            # Let's fix _fetch_and_show to include image fetching.
-            # But get_metadata returns URL. 
-            pass
-        
-        # Note: We need to handle image loading carefully.
-        # Let's respawn a lightweight thread for image if URL exists, or just do it in the previous thread.
-        # Reworking _fetch_and_show slightly in next iter, or here.
-        
+        # --- Header Section ---
         # Title
-        ctk.CTkLabel(self, text=data["title"], font=ctk.CTkFont(size=18, weight="bold"), wraplength=180).pack(pady=(20, 5))
+        ctk.CTkLabel(self, text=data["title"], font=ctk.CTkFont(size=18, weight="bold"), wraplength=200, justify="center").pack(pady=(20, 10), fill="x")
         
-        # Image Placeholder (we'll update it)
-        self.image_label = ctk.CTkLabel(self, text="[No Image]")
+        # --- Image Section ---
+        self.image_label = ctk.CTkLabel(self, text="", width=180, height=180) # Fixed size placeholder
         self.image_label.pack(pady=10)
         
         if data.get("image_url"):
              threading.Thread(target=self._load_image_async, args=(data["image_url"],)).start()
+        else:
+             self.image_label.configure(text="[No Image]")
+
+        # --- Metadata Grid Section ---
+        # Use a grid frame for perfect alignment of labels and values
+        meta_frame = ctk.CTkFrame(self, fg_color="transparent")
+        meta_frame.pack(fill="x", pady=10, padx=10)
         
-        # Desc
-        ctk.CTkLabel(self, text=data["description"], wraplength=180, justify="left", anchor="w").pack(pady=10, fill="x")
+        meta_frame.grid_columnconfigure(0, weight=0) # Labels fixed/minimal width
+        meta_frame.grid_columnconfigure(1, weight=1) # Values expand
         
-        # Date
-        if data.get("date"):
-            ctk.CTkLabel(self, text=f"Released: {data['date']}", text_color="gray").pack(pady=(5, 0))
-            
-        # Details Grid
-        details_frame = ctk.CTkFrame(self, fg_color="transparent")
-        details_frame.pack(pady=10, fill="x")
-        
-        # Helper to add detail rows
-        def add_detail(label, value):
+        row_idx = 0
+        def add_row(label, value):
+            nonlocal row_idx
             if value and value != "Unknown":
-                row = ctk.CTkFrame(details_frame, fg_color="transparent")
-                row.pack(fill="x", pady=1)
-                ctk.CTkLabel(row, text=f"{label}: ", font=ctk.CTkFont(size=11, weight="bold"), width=80, anchor="e").pack(side="left")
-                ctk.CTkLabel(row, text=value, font=ctk.CTkFont(size=11), anchor="w", wraplength=120).pack(side="left", fill="x", expand=True)
+                # Label
+                ctk.CTkLabel(meta_frame, text=f"{label}:", font=ctk.CTkFont(size=11, weight="bold"), 
+                             anchor="e", width=80).grid(row=row_idx, column=0, sticky="ne", padx=(0, 5), pady=2)
+                # Value
+                ctk.CTkLabel(meta_frame, text=value, font=ctk.CTkFont(size=11), 
+                             anchor="w", justify="left", wraplength=130).grid(row=row_idx, column=1, sticky="nw", pady=2)
+                row_idx += 1
 
-        add_detail("Genre", data.get("genres"))
-        add_detail("Dev", data.get("developer"))
-        add_detail("Pub", data.get("publisher"))
-        add_detail("Players", data.get("players"))
-        add_detail("Rating", data.get("rating"))
+        if data.get("date"):
+            add_row("Released", data["date"])
+        
+        add_row("Genre", data.get("genres"))
+        add_row("Developer", data.get("developer"))
+        add_row("Publisher", data.get("publisher"))
+        add_row("Players", data.get("players"))
+        add_row("Rating", data.get("rating"))
 
-        # Provider
-        ctk.CTkLabel(self, text=f"Source: {data['provider']}", font=ctk.CTkFont(size=10), text_color="gray").pack(pady=(20, 5))
+        # --- Description Section ---
+        ctk.CTkLabel(self, text="Overview", font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x", padx=10, pady=(15, 5))
+        
+        desc = data.get("description", "No description available.")
+        ctk.CTkLabel(self, text=desc, font=ctk.CTkFont(size=11), wraplength=200, justify="left", anchor="nw").pack(fill="x", padx=10, pady=(0, 10))
+
+        # --- Footer ---
+        ctk.CTkLabel(self, text=f"Source: {data['provider']}", font=ctk.CTkFont(size=9), text_color="gray").pack(side="bottom", pady=20)
 
 
     def _load_image_async(self, url):
