@@ -1,11 +1,21 @@
 
 import os
+import sys
 from PIL import Image, ImageTk
 import customtkinter as ctk
 
 class ImageUtils:
     @staticmethod
     def load_image(path, size=None):
+        # PyInstaller bundled path fix
+        if hasattr(sys, '_MEIPASS'):
+            # If path matches an asset, resolve relative to MEIPASS
+            # Note: The user passes relative paths like 'assets/logo.png' 
+            # Our spec file bundles: ('assets', 'assets') -> root/assets
+            bundled_path = os.path.join(sys._MEIPASS, path)
+            if os.path.exists(bundled_path):
+                path = bundled_path
+        
         if not os.path.exists(path):
             return None
         try:

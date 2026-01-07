@@ -58,6 +58,7 @@ class SettingsWindow(ctk.CTkToplevel):
             self.path_entry.insert(0, path)
             self.path_entry.configure(state="readonly")
 
+    def _save(self):
         new_path = self.path_entry.get()
         ra_key = self.ra_entry.get().strip()
 

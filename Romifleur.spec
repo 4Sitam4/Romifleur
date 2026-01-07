@@ -51,10 +51,13 @@ exe = EXE(
     icon='icon.ico' if os.path.exists('icon.ico') else None,
 )
 
-# App Bundle for macOS
-app = BUNDLE(
-    exe,
-    name='Romifleur.app',
-    icon='icon.icns' if os.path.exists('icon.icns') else None,
-    bundle_identifier='com.romifleur.app',
-)
+import sys
+
+# App Bundle for macOS (Only needed on macOS)
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='Romifleur.app',
+        icon='icon.icns' if os.path.exists('icon.icns') else None,
+        bundle_identifier='com.romifleur.app',
+    )

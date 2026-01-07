@@ -9,14 +9,18 @@ class InfoPanel(ctk.CTkScrollableFrame):
     def __init__(self, master, app_context, **kwargs):
         super().__init__(master, **kwargs)
         self.app = app_context
-        self._setup_ui()
+        self.desc_label = None
         self._setup_ui()
         
         # Scroll Fix bindings
         self.bind("<Enter>", self._bind_mouse_wheel)
         self.bind("<Leave>", self._unbind_mouse_wheel)
         
+
+        
         self.show_default()
+
+
 
 
     def _setup_ui(self):
@@ -24,6 +28,7 @@ class InfoPanel(ctk.CTkScrollableFrame):
         pass
 
     def clear(self):
+        self.desc_label = None
         for widget in self.winfo_children():
             widget.destroy()
 
@@ -102,7 +107,7 @@ class InfoPanel(ctk.CTkScrollableFrame):
             if value and value != "Unknown":
                 # Label
                 ctk.CTkLabel(meta_frame, text=f"{label}:", font=ctk.CTkFont(size=11, weight="bold"), 
-                             anchor="e", width=80).grid(row=row_idx, column=0, sticky="ne", padx=(0, 5), pady=2)
+                             anchor="w", width=80).grid(row=row_idx, column=0, sticky="nw", padx=(0, 5), pady=2)
                 # Value
                 ctk.CTkLabel(meta_frame, text=value, font=ctk.CTkFont(size=11), 
                              anchor="w", justify="left", wraplength=130).grid(row=row_idx, column=1, sticky="nw", pady=2)
@@ -121,10 +126,11 @@ class InfoPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(self, text="Overview", font=ctk.CTkFont(size=12, weight="bold"), anchor="w").pack(fill="x", padx=10, pady=(15, 5))
         
         desc = data.get("description", "No description available.")
-        ctk.CTkLabel(self, text=desc, font=ctk.CTkFont(size=11), wraplength=200, justify="left", anchor="nw").pack(fill="x", padx=10, pady=(0, 10))
+        self.desc_label = ctk.CTkLabel(self, text=desc, font=ctk.CTkFont(size=12), justify="left", anchor="nw", wraplength=180)
+        self.desc_label.pack(fill="x", padx=10, pady=(0, 10))
 
         # --- Footer ---
-        ctk.CTkLabel(self, text=f"Source: {data['provider']}", font=ctk.CTkFont(size=9), text_color="gray").pack(side="bottom", pady=20)
+        ctk.CTkLabel(self, text=f"Source: {data['provider']}", font=ctk.CTkFont(size=10), text_color="gray").pack(side="bottom", pady=20)
 
 
     def _load_image_async(self, url):

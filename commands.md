@@ -54,7 +54,9 @@ Pour faire une release, il faut:
 git tag vX.X.X
 git push origin main --tags
 ```
-## Commands build sur Arch Linux : 
+## Commands sur Arch Linux : 
+
+### Build
 ```
 # Activer l'environnement virtuel
 source .venv/bin/activate
@@ -64,4 +66,12 @@ pip install -r requirements.txt
 
 # Lancer la compilation
 pyinstaller Romifleur.spec
+```
+### Start from venv
+```
+./.venv/bin/python main.py
+```
+### Build from venv
+```
+./.venv/bin/pyinstaller Romifleur.spec
 ```
