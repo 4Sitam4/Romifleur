@@ -14,14 +14,19 @@
 ### Features
 *   **Modern GUI**: A clean, dark-themed interface powered by CustomTkinter.
 *   **Multi-Console Support**: Access libraries for NES, SNES, N64, GameCube, PS1, PSP, Sega Genesis, Dreamcast, and more.
+*   **Rich Metadata Integration**: Thanks to **TheGamesDB**, view game thumbnails, descriptions, release dates, and more directly in the app.
 *   **Smart Search & Filtering**:
     *   Real-time search bar.
     *   **Region Filters**: Easily toggle between Europe, USA, and Japan versions.
     *   **Clean List**: Option to hide Demos, Betas, and Prototypes automatically.
-*   **Download Queue**: Add multiple games from different consoles to a persistent queue.
-*   **Batch Downloading**: Download your entire queue in parallel with a single click.
+*   **Enhanced Download Queue**: 
+    *   Add multiple games from different consoles to a persistent queue.
+    *   **Size Calculation**: Automatically calculates the total size of your download queue.
+    *   **Batch Downloading**: Download your entire queue in parallel with a single click.
 *   **Custom Download Path**: Choose exactly where your ROMs go (e.g., directly to an SD card). The app automatically creates standard console folders.
 *   **Deduplication**: Automatically identifies and prioritizes the best version of a game (e.g., latest revision, preferred region).
+*   **Cross-Platform Builds**: Now available for **Windows**, **macOS**, and **Linux**! 
+*   **RetroAchievements Support**: API integration to see which games have achievements, now with custom AI-generated PNG icons for consistent rendering across OS.
 
 ### How to Use
 1.  **Launch the App**: Open `Romifleur.exe` (or run `main.py`).
@@ -34,6 +39,9 @@
 7.  **(Optional)** Click **"Settings ⚙️"** to change the download destination folder.
 8.  **(Optional - RetroAchievements)** In **Settings**, enter your **Web API Key** (found in your [RetroAchievements Control Panel](https://retroachievements.org/controlpanel.php)) to enable compatibility badges (🏆).
 9.  **Play**: Click "Open ROMs Folder" to access your downloaded files, automatically organized by console.
+
+### For Developers (v2.0.0 Refactor)
+The codebase has been completely refactored into a cleaner, MVC-like architecture. Logic and UI are deeply separated, components are modular (`src/core`, `src/ui`, `src/utils`), and app scaling is improving across all resolutions.
 
 ### Development & Compilation
 **Requirements:**
