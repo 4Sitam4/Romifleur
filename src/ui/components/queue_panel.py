@@ -2,6 +2,8 @@
 import customtkinter as ctk
 import os
 import json
+import platform
+import subprocess
 from tkinter import filedialog
 
 class QueuePanel(ctk.CTkFrame):
@@ -16,12 +18,21 @@ class QueuePanel(ctk.CTkFrame):
         # Header
         ctk.CTkLabel(self, text="Download Queue", font=ctk.CTkFont(size=18, weight="bold")).pack(padx=20, pady=20)
         
+        # Clear Button (Moved here, above list)
+        ctk.CTkButton(self, text="Clear All 🗑️", fg_color="#AA0000", command=self._clear).pack(padx=20, pady=(0, 10), fill="x")
+
         # List
         self.queue_list = ctk.CTkScrollableFrame(self, label_text="Pending Items")
         self.queue_list.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
+        # Fix scroll logic (focus on hover)
+        self.queue_list.bind("<Enter>", self._bind_mouse_wheel)
+        self.queue_list.bind("<Leave>", self._unbind_mouse_wheel)
+
+        
         self.status_label = ctk.CTkLabel(self, text="0 items")
         self.status_label.pack(pady=5)
+
         
         # Start Button
         self.start_btn = ctk.CTkButton(self, text="Start Downloads 🚀", fg_color="#E0a500", text_color="black", command=self._start_download)
@@ -34,7 +45,8 @@ class QueuePanel(ctk.CTkFrame):
         ctk.CTkButton(io_frame, text="Save 💾", width=80, fg_color="#555", command=self._export).pack(side="left", padx=(0, 5), expand=True, fill="x")
         ctk.CTkButton(io_frame, text="Load 📂", width=80, fg_color="#555", command=self._import).pack(side="left", padx=(5, 0), expand=True, fill="x")
         
-        ctk.CTkButton(self, text="Clear All 🗑️", fg_color="#AA0000", command=self._clear).pack(padx=20, pady=(10, 20), fill="x")
+        # Open Folder Button (Moved from Sidebar)
+        ctk.CTkButton(self, text="Open ROMs Folder", fg_color="#555", command=self._open_roms_folder).pack(padx=20, pady=(10, 20), fill="x")
         
         # Progress
         self.progress_bar = ctk.CTkProgressBar(self, orientation="horizontal")
@@ -149,6 +161,18 @@ class QueuePanel(ctk.CTkFrame):
         except Exception as e:
             print(f"Import error: {e}")
 
+    def _open_roms_folder(self):
+        path = self.app.config.get_download_path()
+        if not os.path.exists(path):
+            return
+            
+        if platform.system() == "Windows":
+            os.startfile(path)
+        elif platform.system() == "Darwin":
+            subprocess.Popen(["open", path])
+        else:
+            subprocess.Popen(["xdg-open", path])
+
     def _start_download(self):
         self.start_btn.configure(state="disabled", text="Downloading...")
         self.progress_bar.pack(padx=20, pady=(0, 20), fill="x")
@@ -176,3 +200,37 @@ class QueuePanel(ctk.CTkFrame):
         self.status_label.configure(text="All Downloads Complete!")
         self.app.download_manager.clear_queue()
         self._refresh_list()
+
+    def _bind_mouse_wheel(self, event):
+        self.queue_list.bind_all("<Button-4>", self._on_mouse_wheel)
+        self.queue_list.bind_all("<Button-5>", self._on_mouse_wheel)
+        # Windows/Mac support just in case
+        self.queue_list.bind_all("<MouseWheel>", self._on_mouse_wheel)
+
+    def _unbind_mouse_wheel(self, event):
+        current = self.winfo_containing(event.x_root, event.y_root)
+        try:
+            if current and str(current).startswith(str(self.queue_list)):
+                return
+        except:
+            pass
+
+        self.queue_list.unbind_all("<Button-4>")
+        self.queue_list.unbind_all("<Button-5>")
+        self.queue_list.unbind_all("<MouseWheel>")
+
+
+    def _on_mouse_wheel(self, event):
+        # Linux uses Button-4 (up) and Button-5 (down)
+        # Windows/Mac uses delta on MouseWheel
+        if event.num == 4:
+            self.queue_list._parent_canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.queue_list._parent_canvas.yview_scroll(1, "units")
+        else:
+            # Windows/Mac
+            if event.delta > 0:
+                 self.queue_list._parent_canvas.yview_scroll(-1, "units")
+            else:
+                 self.queue_list._parent_canvas.yview_scroll(1, "units")
+

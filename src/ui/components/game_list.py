@@ -178,6 +178,9 @@ class GameList(ctk.CTkFrame):
         
         self.tree.bind("<Button-1>", self._on_click)
         self.tree.bind("<Double-1>", self._on_double_click)
+        
+        # Fix scroll logic (focus on hover)
+        self.tree.bind("<Enter>", lambda e: self.tree.focus_set())
 
     def load_console(self, category, console_key):
         self.current_category = category

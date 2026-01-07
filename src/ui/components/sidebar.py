@@ -20,18 +20,27 @@ class Sidebar(ctk.CTkFrame):
         # Logo
         self._setup_logo()
         
-        # Open Folder Button
-        self.open_folder_btn = ctk.CTkButton(self, text="Open ROMs Folder", fg_color="#555", command=self._open_roms_folder)
-        self.open_folder_btn.pack(padx=20, pady=(0, 10))
+        # Open Folder Button (Removed)
+
 
         # Settings (Bottom)
         self.settings_btn = ctk.CTkButton(self, text="Settings ⚙️", fg_color="transparent", border_width=1, 
                                           command=self._open_settings)
         self.settings_btn.pack(side="bottom", padx=20, pady=20, fill="x")
         
-        # Console List
+
+        # Spacer first (pushes list down)
+        self.spacer = ctk.CTkFrame(self, fg_color="transparent")
+        self.spacer.pack(fill="both", expand=True)
+        
+        # Console List (now occupies bottom half)
         self.console_list_frame = ctk.CTkScrollableFrame(self, label_text="Consoles")
-        self.console_list_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        self.console_list_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+        
+        # Fix scroll logic (focus on hover)
+        self.console_list_frame.bind("<Enter>", self._bind_mouse_wheel)
+        self.console_list_frame.bind("<Leave>", self._unbind_mouse_wheel)
+
 
     def _setup_logo(self):
         # Try to find logo in assets or root
@@ -119,20 +128,6 @@ class Sidebar(ctk.CTkFrame):
         # Callback
         self.on_console_select(category, key)
 
-    def _open_roms_folder(self):
-        path = self.app.config.get_download_path()
-        import platform
-        import subprocess
-        
-        if not os.path.exists(path):
-            return
-            
-        if platform.system() == "Windows":
-            os.startfile(path)
-        elif platform.system() == "Darwin":
-            subprocess.Popen(["open", path])
-        else:
-            subprocess.Popen(["xdg-open", path])
 
     def _open_settings(self):
         # Import dynamically to avoid circular import if SettingsWindow is in same package
@@ -140,3 +135,39 @@ class Sidebar(ctk.CTkFrame):
         # Or just open a Toplevel here.
         from ...ui.settings_window import SettingsWindow
         SettingsWindow(self.winfo_toplevel(), self.app)
+
+    def _bind_mouse_wheel(self, event):
+        self.console_list_frame.bind_all("<Button-4>", self._on_mouse_wheel)
+        self.console_list_frame.bind_all("<Button-5>", self._on_mouse_wheel)
+        # Windows/Mac support just in case
+        self.console_list_frame.bind_all("<MouseWheel>", self._on_mouse_wheel)
+
+    def _unbind_mouse_wheel(self, event):
+        # Check if we are still inside the frame (or its children)
+        # unbind only if we really left the area
+        current = self.winfo_containing(event.x_root, event.y_root)
+        try:
+            if current and str(current).startswith(str(self.console_list_frame)):
+                return
+        except:
+            pass
+
+        self.console_list_frame.unbind_all("<Button-4>")
+        self.console_list_frame.unbind_all("<Button-5>")
+        self.console_list_frame.unbind_all("<MouseWheel>")
+
+
+    def _on_mouse_wheel(self, event):
+        # Linux uses Button-4 (up) and Button-5 (down)
+        # Windows/Mac uses delta on MouseWheel
+        if event.num == 4:
+            self.console_list_frame._parent_canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.console_list_frame._parent_canvas.yview_scroll(1, "units")
+        else:
+            # Windows/Mac
+            if event.delta > 0:
+                 self.console_list_frame._parent_canvas.yview_scroll(-1, "units")
+            else:
+                 self.console_list_frame._parent_canvas.yview_scroll(1, "units")
+
