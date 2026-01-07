@@ -2,6 +2,8 @@
 import customtkinter as ctk
 import os
 from ...utils.image_utils import ImageUtils
+from .info_panel import InfoPanel
+
 
 class Sidebar(ctk.CTkFrame):
     def __init__(self, master, app_context, on_console_select, **kwargs):
@@ -29,13 +31,14 @@ class Sidebar(ctk.CTkFrame):
         self.settings_btn.pack(side="bottom", padx=20, pady=20, fill="x")
         
 
-        # Spacer first (pushes list down)
-        self.spacer = ctk.CTkFrame(self, fg_color="transparent")
-        self.spacer.pack(fill="both", expand=True)
-        
-        # Console List (now occupies bottom half)
+        # Info Panel (Top half, expands)
+        self.info_panel.pack(fill="both", expand=True, padx=10, pady=10)
+
+
+        # Console List (Bottom half, expands)
         self.console_list_frame = ctk.CTkScrollableFrame(self, label_text="Consoles")
         self.console_list_frame.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+
         
         # Fix scroll logic (focus on hover)
         self.console_list_frame.bind("<Enter>", self._bind_mouse_wheel)
@@ -43,24 +46,17 @@ class Sidebar(ctk.CTkFrame):
 
 
     def _setup_logo(self):
-        # Try to find logo in assets or root
-        # We need a standard way to find assets. 
-        # For now, look in current directory as per original code, or assets/
-        candidates = ["logo-romifleur.png", "Romifleur_logo.png", "assets/logo-romifleur.png"]
-        logo_img = None
-        
-        for c in candidates:
-            # Check relative to CWD (root)
-            path = os.path.abspath(c)
-            logo_img = ImageUtils.load_image(path, size=(180, 180))
-            if logo_img: break
-            
-        if logo_img:
-            self.logo_label = ctk.CTkLabel(self, text="", image=logo_img)
-        else:
-            self.logo_label = ctk.CTkLabel(self, text="Romifleur", font=ctk.CTkFont(size=20, weight="bold"))
-        
-        self.logo_label.pack(padx=20, pady=20)
+        # Replace logo with InfoPanel
+        self.info_panel = InfoPanel(self, self.app, width=200, height=300) # approximate height, it's scrollable
+        # We want it to take some space but not too much? 
+        # User said "replace the logo". Logo was packed with pady 20.
+        # Maybe limit height or let it expand slightly?
+        # User said "scrollable frame".
+        # User said "scrollable frame".
+        # self.info_panel.pack(fill="x", padx=10, pady=10) # Moved to _setup_ui pack order logic
+        pass
+
+
 
     def _populate_list(self):
         consoles = self.app.rom_manager.consoles

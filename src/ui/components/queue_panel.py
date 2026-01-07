@@ -35,7 +35,7 @@ class QueuePanel(ctk.CTkFrame):
 
         
         # Start Button
-        self.start_btn = ctk.CTkButton(self, text="Start Downloads 🚀", fg_color="#E0a500", text_color="black", command=self._start_download)
+        self.start_btn = ctk.CTkButton(self, text="Start Downloads", fg_color="#E0a500", text_color="black", command=self._start_download)
         self.start_btn.pack(padx=20, pady=10, fill="x")
         
         # I/O Buttons
@@ -195,7 +195,7 @@ class QueuePanel(ctk.CTkFrame):
         self.after(0, self._on_complete_safe)
 
     def _on_complete_safe(self):
-        self.start_btn.configure(state="normal", text="Start Downloads 🚀")
+        self.start_btn.configure(state="normal", text="Start Downloads")
         self.progress_bar.pack_forget()
         self.status_label.configure(text="All Downloads Complete!")
         self.app.download_manager.clear_queue()

@@ -44,6 +44,9 @@ class SettingsWindow(ctk.CTkToplevel):
         self.ra_entry.pack(fill="x", padx=10, pady=(0, 10))
         self.ra_entry.insert(0, self.app.config.settings.get("ra_api_key", ""))
         
+
+
+        
         # Save
         ctk.CTkButton(self, text="Save Settings", fg_color="green", command=self._save).pack(pady=20)
 
@@ -55,9 +58,10 @@ class SettingsWindow(ctk.CTkToplevel):
             self.path_entry.insert(0, path)
             self.path_entry.configure(state="readonly")
 
-    def _save(self):
         new_path = self.path_entry.get()
         ra_key = self.ra_entry.get().strip()
+
+
         
         # Validation
         if ra_key:
@@ -69,7 +73,9 @@ class SettingsWindow(ctk.CTkToplevel):
 
         self.app.config.settings["roms_path"] = new_path
         self.app.config.settings["ra_api_key"] = ra_key
+        # self.app.config.settings["tgdb_api_key"] = tgdb_key # Removed
         self.app.config.save_settings()
+
         
         # Partial reload?
         # self.app.ra_manager.api_key is a property, so it updates automatically.

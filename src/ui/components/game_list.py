@@ -269,6 +269,18 @@ class GameList(ctk.CTkFrame):
                         self.tree.item(row_id, values=(new_val, vals[1], vals[2]))
                     else:
                         self.tree.item(row_id, values=(new_val, vals[1]))
+            else:
+                 # Clicked on other columns (Name/Size) -> Selection
+                 # We want to trigger InfoPanel
+                 row_id = self.tree.identify_row(event.y)
+                 if row_id:
+                    vals = self.tree.item(row_id, "values")
+                    filename = vals[1]
+                    # Call Sidebar InfoPanel
+                    # Access via app.window.sidebar
+                    if hasattr(self.app, 'window') and hasattr(self.app.window, 'sidebar'):
+                        self.app.window.sidebar.info_panel.show_game(self.current_category, self.current_console, filename)
+
 
     def _on_double_click(self, event):
         row_id = self.tree.identify_row(event.y)

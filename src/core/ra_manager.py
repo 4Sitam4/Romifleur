@@ -98,8 +98,28 @@ class RetroAchievementsManager:
             return simplified
             
         except Exception as e:
+
             print(f"RA API Error: {e}")
             return []
+
+    def get_game_details(self, game_id):
+        """Fetch extended game details (Cover, Desc, Released)."""
+        if not self.api_key: return None
+        
+        # Check cache? Typically we might want to cache this too, but MetadataManager will likely handle the high-level caching.
+        # However, RA Manager could cache raw responses.
+        # For now let's just fetch.
+        try:
+            url = f"{self.BASE_URL}/API_GetGame.php"
+            params = {"y": self.api_key, "i": game_id}
+            
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"RA Details Error: {e}")
+            return None
+
 
     def get_supported_games(self, console_key):
         cid = self.get_console_id(console_key)
