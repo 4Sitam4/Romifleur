@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import requests
 from io import BytesIO
 from ...utils.image_utils import ImageUtils
+import platform
 
 class InfoPanel(ctk.CTkScrollableFrame):
     def __init__(self, master, app_context, **kwargs):
@@ -57,6 +58,9 @@ class InfoPanel(ctk.CTkScrollableFrame):
         ctk.CTkLabel(self, text="Released: 03/01/2026", text_color="gray").pack(pady=(10, 20))
 
     def show_game(self, category, console, filename):
+        # Reset scroll to top
+        self._parent_canvas.yview_moveto(0)
+        
         # Show loader first?
         self.clear()
         
@@ -182,8 +186,12 @@ class InfoPanel(ctk.CTkScrollableFrame):
         elif event.num == 5:
             self._parent_canvas.yview_scroll(1, "units")
         else:
+            factor = 1
+            if platform.system() == "Windows":
+                factor = 20
+
             if event.delta > 0:
-                 self._parent_canvas.yview_scroll(-1, "units")
+                 self._parent_canvas.yview_scroll(-1 * factor, "units")
             else:
-                 self._parent_canvas.yview_scroll(1, "units")
+                 self._parent_canvas.yview_scroll(1 * factor, "units")
 

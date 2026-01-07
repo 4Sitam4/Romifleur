@@ -1,14 +1,14 @@
 {
     "Nintendo": {
         "NES": {
-            "name": "Nintendo Entertainment System",
+            "name": "NES",
             "folder": "nes",
             "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20Entertainment%20System%20(Headered)/",
             "exts": [".zip", ".7z", ".nes"],
             "best_games": ["Super Mario Bros. 3", "Legend of Zelda", "Metroid", "Mega Man 2", "Castlevania III"]
         },
         "SNES": {
-            "name": "Super Nintendo",
+            "name": "SNES",
             "folder": "snes",
             "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/",
             "exts": [".zip", ".7z", ".sfc"],

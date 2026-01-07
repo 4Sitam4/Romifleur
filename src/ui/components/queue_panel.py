@@ -229,8 +229,12 @@ class QueuePanel(ctk.CTkFrame):
             self.queue_list._parent_canvas.yview_scroll(1, "units")
         else:
             # Windows/Mac
+            factor = 1
+            if platform.system() == "Windows":
+                factor = 20
+            
             if event.delta > 0:
-                 self.queue_list._parent_canvas.yview_scroll(-1, "units")
+                 self.queue_list._parent_canvas.yview_scroll(-1 * factor, "units")
             else:
-                 self.queue_list._parent_canvas.yview_scroll(1, "units")
+                 self.queue_list._parent_canvas.yview_scroll(1 * factor, "units")
 

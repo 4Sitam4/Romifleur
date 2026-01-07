@@ -3,6 +3,7 @@ import customtkinter as ctk
 import os
 from ...utils.image_utils import ImageUtils
 from .info_panel import InfoPanel
+import platform
 
 
 class Sidebar(ctk.CTkFrame):
@@ -162,8 +163,12 @@ class Sidebar(ctk.CTkFrame):
             self.console_list_frame._parent_canvas.yview_scroll(1, "units")
         else:
             # Windows/Mac
+            factor = 1
+            if platform.system() == "Windows":
+                factor = 20
+            
             if event.delta > 0:
-                 self.console_list_frame._parent_canvas.yview_scroll(-1, "units")
+                 self.console_list_frame._parent_canvas.yview_scroll(-1 * factor, "units")
             else:
-                 self.console_list_frame._parent_canvas.yview_scroll(1, "units")
+                 self.console_list_frame._parent_canvas.yview_scroll(1 * factor, "units")
 

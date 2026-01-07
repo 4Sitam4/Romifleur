@@ -5,6 +5,7 @@ import threading
 import os
 from PIL import Image, ImageTk
 from src.utils.path_utils import resource_path
+import platform
 
 class GameList(ctk.CTkFrame):
     def __init__(self, master, app_context, on_add_queue, **kwargs):
@@ -181,6 +182,9 @@ class GameList(ctk.CTkFrame):
         
         # Fix scroll logic (focus on hover)
         self.tree.bind("<Enter>", lambda e: self.tree.focus_set())
+        
+        if platform.system() == "Windows":
+            self.tree.bind("<MouseWheel>", self._on_mousewheel)
 
     def load_console(self, category, console_key):
         self.current_category = category
@@ -291,6 +295,10 @@ class GameList(ctk.CTkFrame):
             size = vals[2] if len(vals) > 2 else "N/A"
             if self.on_add_queue:
                 self.on_add_queue(self.current_category, self.current_console, [(filename, size)])
+
+    def _on_mousewheel(self, event):
+        self.tree.yview_scroll(int(-1*(event.delta/120))*3, "units")
+        return "break"
 
     def _toggle_select_all(self):
         children = self.tree.get_children()

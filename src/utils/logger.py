@@ -23,6 +23,9 @@ def setup_logging(debug_mode=False):
     logger = logging.getLogger()
     logger.setLevel(log_level)
     
+    # Prevent "No handlers could be found" warning and recursion via lastResort
+    logger.addHandler(logging.NullHandler())
+    
     # File Handler
     if debug_mode:
         try:
@@ -43,18 +46,20 @@ def setup_logging(debug_mode=False):
                 pass # Give up if we can't write logs anywhere
 
     # Console Handler (if we want to see it in terminal window too)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+    if sys.stdout is not None:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(log_level)
+        console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
     
     # Redirect stdout and stderr
     sys.stdout = StreamToLogger(logger, logging.INFO)
     sys.stderr = StreamToLogger(logger, logging.ERROR)
     
     logging.info(f"Logging started. Debug mode: {debug_mode}")
-    logging.info(f"Log file: {log_file}")
+    if debug_mode:
+        logging.info(f"Log file: {log_file}")
     
 class StreamToLogger(object):
     """
@@ -64,10 +69,22 @@ class StreamToLogger(object):
         self.logger = logger
         self.log_level = log_level
         self.linebuf = ''
+        self.processing = False
 
     def write(self, buf):
-        for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
+        # Recursion guard
+        if self.processing:
+            return
+            
+        self.processing = True
+        try:
+            for line in buf.rstrip().splitlines():
+                if line.strip():
+                     self.logger.log(self.log_level, line.rstrip())
+        except Exception:
+            pass
+        finally:
+            self.processing = False
 
     def flush(self):
         pass
