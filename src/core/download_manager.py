@@ -10,18 +10,18 @@ logger = logging.getLogger(__name__)
 class DownloadManager:
     def __init__(self, rom_manager: RomManager):
         self.rom_manager = rom_manager
-        self.queue = [] # List of (Category, Console, Filename)
+        self.queue = [] # List of (Category, Console, Filename, Size)
         self.is_downloading = False
         self.lock = threading.Lock()
         
-    def add_to_queue(self, category, console, filename):
+    def add_to_queue(self, category, console, filename, size="N/A"):
         # Avoid duplicates
         for item in self.queue:
             if item[2] == filename:
                 return False
         
-        self.queue.append((category, console, filename))
-        logger.info(f"Added to queue: {filename}")
+        self.queue.append((category, console, filename, size))
+        logger.info(f"Added to queue: {filename} ({size})")
         return True
 
     def remove_from_queue(self, index):
@@ -61,7 +61,7 @@ class DownloadManager:
                     progress_callback(prog, status)
 
         def download_task(item):
-            cat, console, fname = item
+            cat, console, fname, _ = item
             success = self.rom_manager.download_file(cat, console, fname, progress_callback=None)
             if success:
                 logger.info(f"Successfully downloaded: {fname}")

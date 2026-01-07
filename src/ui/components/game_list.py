@@ -153,8 +153,9 @@ class GameList(ctk.CTkFrame):
         # Scale column widths
         select_width = int(40 * scaling)
         ra_width = int(40 * scaling)
+        size_width = int(80 * scaling)
 
-        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "Name"), show="tree headings", selectmode="extended")
+        self.tree = ttk.Treeview(self.tree_frame, columns=("Select", "Name", "Size"), show="tree headings", selectmode="extended")
         
         self.tree.heading("#0", text="", anchor="center", command=self._sort_by_ra)
         self.tree.column("#0", width=ra_width, stretch=False, anchor="center")
@@ -164,6 +165,9 @@ class GameList(ctk.CTkFrame):
         
         self.tree.heading("Name", text="Game Title", anchor="w")
         self.tree.column("Name", width=450)
+        
+        self.tree.heading("Size", text="Size", anchor="e")
+        self.tree.column("Size", width=size_width, anchor="e")
         
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.scrollbar = ttk.Scrollbar(self.tree_frame, orient="vertical", command=self.tree.yview)
@@ -226,13 +230,16 @@ class GameList(ctk.CTkFrame):
         ra_games = self.app.ra_manager.get_supported_games(self.current_console)
         api_key = self.app.ra_manager.api_key
         
-        for f in files:
+        for item in files:
+            name = item["name"]
+            size = item["size"]
+            
             img = self.img_question
             if api_key:
-                is_ra = self.app.ra_manager.is_compatible(f, ra_games)
+                is_ra = self.app.ra_manager.is_compatible(name, ra_games)
                 img = self.img_trophy if is_ra else self.img_cross
             
-            self.tree.insert("", "end", text="", image=img, values=("☐", f))
+            self.tree.insert("", "end", text="", image=img, values=("☐", name, size))
             
         self.info_label.configure(text=f"{len(files)} games found")
         self._update_header_icon()
@@ -254,16 +261,21 @@ class GameList(ctk.CTkFrame):
                 if row_id:
                     vals = self.tree.item(row_id, "values")
                     new_val = "☑" if vals[0] == "☐" else "☐"
-                    self.tree.item(row_id, values=(new_val, vals[1]))
+                    # Preserve Size if it exists (vals might be len 3 now)
+                    if len(vals) > 2:
+                        self.tree.item(row_id, values=(new_val, vals[1], vals[2]))
+                    else:
+                        self.tree.item(row_id, values=(new_val, vals[1]))
 
     def _on_double_click(self, event):
         row_id = self.tree.identify_row(event.y)
         if row_id:
             vals = self.tree.item(row_id, "values")
-            # vals = (checkbox_status, filename)
+            # vals = (checkbox, filename, size)
             filename = vals[1]
+            size = vals[2] if len(vals) > 2 else "N/A"
             if self.on_add_queue:
-                self.on_add_queue(self.current_category, self.current_console, [filename])
+                self.on_add_queue(self.current_category, self.current_console, [(filename, size)])
 
     def _toggle_select_all(self):
         children = self.tree.get_children()
@@ -272,7 +284,10 @@ class GameList(ctk.CTkFrame):
         new = "☑" if first == "☐" else "☐"
         for item in children:
             v = self.tree.item(item, "values")
-            self.tree.item(item, values=(new, v[1]))
+            if len(v) > 2:
+                self.tree.item(item, values=(new, v[1], v[2]))
+            else:
+                self.tree.item(item, values=(new, v[1]))
 
     def _add_selected(self):
         items = []
@@ -280,13 +295,15 @@ class GameList(ctk.CTkFrame):
         for item in self.tree.get_children():
             vals = self.tree.item(item, "values")
             if vals[0] == "☑":
-                items.append(vals[1])
+                size = vals[2] if len(vals) > 2 else "N/A"
+                items.append((vals[1], size))
         
         # Check selection if no checkboxes
         if not items:
             for item in self.tree.selection():
                 vals = self.tree.item(item, "values")
-                items.append(vals[1])
+                size = vals[2] if len(vals) > 2 else "N/A"
+                items.append((vals[1], size))
                 
         if items and self.on_add_queue:
             self.on_add_queue(self.current_category, self.current_console, items)
@@ -305,7 +322,8 @@ class GameList(ctk.CTkFrame):
         # Sort logic
         # We sort by (is_compatible, filename)
         # Using a stable sort key
-        def sort_key(filename):
+        def sort_key(item):
+            filename = item["name"]
             is_ra = self.app.ra_manager.is_compatible(filename, ra_games)
             # Tuple comparison: True > False so (True, name) comes after (False, name) in Ascending
             # If we want Compatible FIRST in Descending:
@@ -336,13 +354,13 @@ class GameList(ctk.CTkFrame):
         found_set = set()
         for bg in best_list:
             for av in available:
-                if bg.lower() in av.lower():
+                if bg.lower() in av["name"].lower():
                     # Check if allowed by current filters?
                     # Ideally yes. But "Best Games" usually implies overriding filters?
                     # Let's stick to showing them in the list.
-                    if av not in found_set:
+                    if av["name"] not in found_set:
                         matches.append(av)
-                        found_set.add(av)
+                        found_set.add(av["name"])
                         break # Find first match for this game? Or all? User might want revisions.
         
         self.search_var.set("") # Clear search

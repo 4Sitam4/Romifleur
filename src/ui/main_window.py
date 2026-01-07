@@ -40,7 +40,7 @@ class MainWindow(ctk.CTk):
     def _on_console_select(self, category, console_key):
         self.game_list.load_console(category, console_key)
 
-    def _on_add_to_queue(self, category, console, filenames):
-        count = self.queue_panel.add_items(category, console, filenames)
+    def _on_add_to_queue(self, category, console, items):
+        count = self.queue_panel.add_items(category, console, items)
         # Optional: Show ephemeral message or status?
         pass

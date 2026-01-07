@@ -42,7 +42,35 @@ class RomManager:
                 if href and href.endswith(exts):
                     filename = unquote(href)
                     if filename not in [".", ".."]:
-                         links.append(filename)
+                        # Try to find size
+                        size = "N/A"
+                        # Strategy 1: Table based (Myrient often uses tables)
+                        parent_td = link.find_parent('td')
+                        if parent_td:
+                            # Usually Date is next, then Size, or just Size. 
+                            # Myrient: Name | Date | Size
+                            next_tds = parent_td.find_next_siblings('td')
+                            for td in next_tds:
+                                text = td.get_text(strip=True)
+                                # Look for size pattern (digits + B/K/M/G)
+                                if re.search(r'\d+(\.\d+)?\s*[BKMG]i?B?', text, re.IGNORECASE):
+                                    size = text
+                                    break
+                        
+                        # Strategy 2: Text based (Apache/Nginx standard)
+                        if size == "N/A":
+                            next_text = link.next_sibling
+                            if next_text and isinstance(next_text, str):
+                                # "           01-Jan-2022 12:00  1.2M"
+                                # Find last parsed chunk usually
+                                parts = next_text.strip().split()
+                                if parts:
+                                    # Check last part for size-like
+                                    candidate = parts[-1]
+                                    if re.match(r'^[\d\.]+[BKMG]$', candidate):
+                                        size = candidate
+
+                        links.append({"name": filename, "size": size})
             
             self.cache[cache_key] = links
             return links
@@ -55,7 +83,9 @@ class RomManager:
         files = self.fetch_file_list(category, console_key)
         
         filtered = []
-        for f in files:
+        for item in files:
+            f = item["name"] # Extract name for filtering logic
+            
             # 1. Query Filter
             if query and query.lower() not in f.lower():
                 continue
@@ -86,7 +116,14 @@ class RomManager:
                 if not is_region_match:
                     continue
             
-            filtered.append(f)
+                    if clean_r in file_tags:
+                        is_region_match = True
+                        break
+                    
+                if not is_region_match:
+                    continue
+            
+            filtered.append(item) # Append the full dict object
 
         if self.filters["deduplicate"]:
             filtered = self._deduplicate(filtered)
@@ -96,17 +133,18 @@ class RomManager:
     def _deduplicate(self, file_list):
         """Deduplicates list keeping best revisions."""
         best_candidates = {}
-        for filename in file_list:
+        for item in file_list:
+            filename = item["name"]
             base = self._get_base_title(filename)
             score = self._get_score(filename)
             
             if base not in best_candidates:
-                best_candidates[base] = (score, filename)
+                best_candidates[base] = (score, item)
             else:
                 if score > best_candidates[base][0]:
-                    best_candidates[base] = (score, filename)
+                    best_candidates[base] = (score, item)
                     
-        return sorted([val[1] for val in best_candidates.values()])
+        return sorted([val[1] for val in best_candidates.values()], key=lambda x: x["name"])
 
     def _get_base_title(self, filename):
         name = os.path.splitext(filename)[0]

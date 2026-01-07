@@ -41,10 +41,10 @@ class QueuePanel(ctk.CTkFrame):
         self.progress_bar.set(0)
         # Hidden by default
 
-    def add_items(self, category, console, filenames):
+    def add_items(self, category, console, items):
         count = 0
-        for f in filenames:
-            if self.app.download_manager.add_to_queue(category, console, f):
+        for fname, size in items:
+            if self.app.download_manager.add_to_queue(category, console, fname, size):
                 count += 1
         self._refresh_list()
         return count
@@ -54,9 +54,10 @@ class QueuePanel(ctk.CTkFrame):
             widget.destroy()
             
         queue = self.app.download_manager.queue
-        self.status_label.configure(text=f"{len(queue)} items in queue")
+        total_size = self._calculate_total_size(queue)
+        self.status_label.configure(text=f"{len(queue)} items (Approx. {total_size})")
         
-        for i, (cat, console, fname) in enumerate(queue):
+        for i, (cat, console, fname, size) in enumerate(queue):
             item_frame = ctk.CTkFrame(self.queue_list, fg_color="transparent")
             item_frame.pack(fill="x", pady=2)
             
@@ -67,6 +68,54 @@ class QueuePanel(ctk.CTkFrame):
             
             display = fname[:20] + "..." if len(fname) > 20 else fname
             ctk.CTkLabel(item_frame, text=f"[{console}] {display}", anchor="w", height=20).pack(side="left", fill="x", expand=True)
+            ctk.CTkLabel(item_frame, text=size, font=("Arial", 10), text_color="gray").pack(side="left", padx=5)
+
+    def _calculate_total_size(self, queue):
+        total_bytes = 0
+        for item in queue:
+            # item = (cat, console, fname, size)
+            size_str = item[3]
+            total_bytes += self._parse_size(size_str)
+        return self._format_size(total_bytes)
+
+    def _parse_size(self, size_str):
+        if not size_str or size_str == "N/A": return 0
+        try:
+            # Expected "1.2 MB", "800 KB"
+            parts = size_str.split()
+            if len(parts) < 2: return 0
+            val = float(parts[0])
+            unit = parts[1].upper()
+            
+            multipliers = {
+                "B": 1, 
+                "KB": 1024, "KIB": 1024, "K": 1024,
+                "MB": 1024**2, "MIB": 1024**2, "M": 1024**2,
+                "GB": 1024**3, "GIB": 1024**3, "G": 1024**3
+            }
+            # Handle standard suffixes key matching
+            mult = 1
+            for k, m in multipliers.items():
+                if unit.startswith(k):
+                    mult = m
+                    # prioritize exact matches first usually, but here checking startsWith KB vs K 
+                    # dict iteration order matters if keys overlap. KB comes before K.
+                    # Let's simple check
+                    break 
+            
+            return int(val * mult)
+        except:
+            return 0
+
+    def _format_size(self, size_bytes):
+        if size_bytes == 0: return "0 B"
+        power = 1024
+        n = 0
+        power_labels = {0 : '', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+        while size_bytes > power:
+            size_bytes /= power
+            n += 1
+        return f"{size_bytes:.2f} {power_labels.get(n, '')}"
 
     def _remove(self, index):
         self.app.download_manager.remove_from_queue(index)
@@ -91,8 +140,11 @@ class QueuePanel(ctk.CTkFrame):
                 data = json.load(f)
                 if isinstance(data, list):
                     for item in data:
-                        if len(item) == 3:
-                            self.app.download_manager.add_to_queue(item[0], item[1], item[2])
+                        if len(item) >= 3:
+                            # Support old format (len 3) and new (len 4)
+                            cat, cons, fn = item[0], item[1], item[2]
+                            sz = item[3] if len(item) > 3 else "N/A"
+                            self.app.download_manager.add_to_queue(cat, cons, fn, sz)
             self._refresh_list()
         except Exception as e:
             print(f"Import error: {e}")
