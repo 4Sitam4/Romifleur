@@ -2,6 +2,7 @@
 import customtkinter as ctk
 import os
 from ...utils.image_utils import ImageUtils
+from ...utils.icons import Icons
 from .info_panel import InfoPanel
 import platform
 
@@ -27,7 +28,7 @@ class Sidebar(ctk.CTkFrame):
 
 
         # Settings (Bottom)
-        self.settings_btn = ctk.CTkButton(self, text="Settings ⚙️", fg_color="transparent", border_width=1, 
+        self.settings_btn = ctk.CTkButton(self, text=Icons.SETTINGS, fg_color="transparent", border_width=1, 
                                           command=self._open_settings)
         self.settings_btn.pack(side="bottom", padx=20, pady=20, fill="x")
         
@@ -81,12 +82,12 @@ class Sidebar(ctk.CTkFrame):
             btn = self.category_buttons[cat]
             if frame.winfo_viewable():
                 frame.pack_forget()
-                btn.configure(text=f"▶ {cat}")
+                btn.configure(text=f"{Icons.COLLAPSE} {cat}")
             else:
                 frame.pack(fill="x", padx=10, pady=0)
-                btn.configure(text=f"▼ {cat}")
+                btn.configure(text=f"{Icons.EXPAND} {cat}")
 
-        btn = ctk.CTkButton(header_frame, text=f"▼ {category}", fg_color="#333", hover_color="#444", 
+        btn = ctk.CTkButton(header_frame, text=f"{Icons.EXPAND} {category}", fg_color="#333", hover_color="#444", 
                             anchor="w", command=toggle_category, font=("Arial", 13, "bold"))
         btn.pack(fill="x")
         

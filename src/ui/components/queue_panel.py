@@ -5,6 +5,7 @@ import json
 import platform
 import subprocess
 from tkinter import filedialog
+from ...utils.icons import Icons
 
 class QueuePanel(ctk.CTkFrame):
     def __init__(self, master, app_context, **kwargs):
@@ -19,7 +20,7 @@ class QueuePanel(ctk.CTkFrame):
         ctk.CTkLabel(self, text="Download Queue", font=ctk.CTkFont(size=18, weight="bold")).pack(padx=20, pady=20)
         
         # Clear Button (Moved here, above list)
-        ctk.CTkButton(self, text="Clear All 🗑️", fg_color="#AA0000", command=self._clear).pack(padx=20, pady=(0, 10), fill="x")
+        ctk.CTkButton(self, text=Icons.TRASH, fg_color="#AA0000", command=self._clear).pack(padx=20, pady=(0, 10), fill="x")
 
         # List
         self.queue_list = ctk.CTkScrollableFrame(self, label_text="Pending Items")
@@ -42,8 +43,8 @@ class QueuePanel(ctk.CTkFrame):
         io_frame = ctk.CTkFrame(self, fg_color="transparent")
         io_frame.pack(padx=20, pady=(0, 20), fill="x")
         
-        ctk.CTkButton(io_frame, text="Save 💾", width=80, fg_color="#555", command=self._export).pack(side="left", padx=(0, 5), expand=True, fill="x")
-        ctk.CTkButton(io_frame, text="Load 📂", width=80, fg_color="#555", command=self._import).pack(side="left", padx=(5, 0), expand=True, fill="x")
+        ctk.CTkButton(io_frame, text=Icons.SAVE, width=80, fg_color="#555", command=self._export).pack(side="left", padx=(0, 5), expand=True, fill="x")
+        ctk.CTkButton(io_frame, text=Icons.FOLDER, width=80, fg_color="#555", command=self._import).pack(side="left", padx=(5, 0), expand=True, fill="x")
         
         # Open Folder Button (Moved from Sidebar)
         ctk.CTkButton(self, text="Open ROMs Folder", fg_color="#555", command=self._open_roms_folder).pack(padx=20, pady=(10, 20), fill="x")
@@ -74,7 +75,7 @@ class QueuePanel(ctk.CTkFrame):
             item_frame.pack(fill="x", pady=2)
             
             # Remove Button
-            btn = ctk.CTkButton(item_frame, text="❌", width=30, height=20, fg_color="darkred", 
+            btn = ctk.CTkButton(item_frame, text=Icons.REMOVE, width=30, height=20, fg_color="darkred", 
                                 command=lambda idx=i: self._remove(idx))
             btn.pack(side="right", padx=(5, 0))
             

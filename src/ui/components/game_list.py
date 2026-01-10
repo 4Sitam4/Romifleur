@@ -5,6 +5,7 @@ import threading
 import os
 from PIL import Image, ImageTk
 from src.utils.path_utils import resource_path
+from src.utils.icons import Icons
 import platform
 
 class GameList(ctk.CTkFrame):
@@ -116,7 +117,7 @@ class GameList(ctk.CTkFrame):
         self.best_btn = ctk.CTkButton(self.action_frame, text="Load Best Games", fg_color="green", command=self._load_best_games)
         self.best_btn.pack(side="left", padx=10)
         
-        self.add_btn = ctk.CTkButton(self.action_frame, text="Add to Queue ➡️", command=self._add_selected)
+        self.add_btn = ctk.CTkButton(self.action_frame, text=Icons.ARROW_RIGHT, command=self._add_selected)
         self.add_btn.pack(side="right")
         
         ctk.CTkButton(self.action_frame, text="Select All", width=100, fg_color="#444", command=self._toggle_select_all).pack(side="right", padx=10)
@@ -246,7 +247,7 @@ class GameList(ctk.CTkFrame):
                 is_ra = self.app.ra_manager.is_compatible(name, ra_games)
                 img = self.img_trophy if is_ra else self.img_cross
             
-            self.tree.insert("", "end", text="", image=img, values=("☐", name, size))
+            self.tree.insert("", "end", text="", image=img, values=(Icons.CHECKBOX_EMPTY, name, size))
             
         self.info_label.configure(text=f"{len(files)} games found")
         self._update_header_icon()
@@ -267,7 +268,7 @@ class GameList(ctk.CTkFrame):
                 row_id = self.tree.identify_row(event.y)
                 if row_id:
                     vals = self.tree.item(row_id, "values")
-                    new_val = "☑" if vals[0] == "☐" else "☐"
+                    new_val = Icons.CHECKBOX_CHECKED if vals[0] == Icons.CHECKBOX_EMPTY else Icons.CHECKBOX_EMPTY
                     # Preserve Size if it exists (vals might be len 3 now)
                     if len(vals) > 2:
                         self.tree.item(row_id, values=(new_val, vals[1], vals[2]))
@@ -304,7 +305,7 @@ class GameList(ctk.CTkFrame):
         children = self.tree.get_children()
         if not children: return
         first = self.tree.item(children[0], "values")[0]
-        new = "☑" if first == "☐" else "☐"
+        new = Icons.CHECKBOX_CHECKED if first == Icons.CHECKBOX_EMPTY else Icons.CHECKBOX_EMPTY
         for item in children:
             v = self.tree.item(item, "values")
             if len(v) > 2:
@@ -317,7 +318,7 @@ class GameList(ctk.CTkFrame):
         # Check checkboxes
         for item in self.tree.get_children():
             vals = self.tree.item(item, "values")
-            if vals[0] == "☑":
+            if vals[0] == Icons.CHECKBOX_CHECKED:
                 size = vals[2] if len(vals) > 2 else "N/A"
                 items.append((vals[1], size))
         
