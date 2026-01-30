@@ -1,0 +1,47 @@
+name: romifleur
+description: "Romifleur - ROM Downloader with RetroAchievements support"
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  
+  # Networking
+  dio: ^5.8.0
+  web_socket_channel: ^3.0.3
+  
+  # Storage
+  shared_preferences: ^2.3.4
+  path_provider: ^2.1.5
+  
+  # Images
+  cached_network_image: ^3.4.1
+  
+  # Utils
+  file_picker: ^8.3.7
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  riverpod_generator: ^2.6.3
+  build_runner: ^2.4.14
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
