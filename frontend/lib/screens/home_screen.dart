@@ -63,11 +63,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(width: 350, child: DownloadPanel()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openSettings(),
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.settings),
-      ),
     );
   }
 
@@ -109,7 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: _buildBodyContent()),
+          Expanded(child: _buildBodyContent(showSettings: false)),
         ],
       ),
     );
@@ -117,16 +112,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildMobileLayout() {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Romifleur'),
-        actions: [
-          IconButton(
-            onPressed: _openSettings,
-            icon: const Icon(Icons.settings),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildMobileHeader(),
+            Expanded(child: _buildBodyContent(showSidebarHeader: false)),
+          ],
+        ),
       ),
-      body: _buildBodyContent(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
@@ -148,10 +141,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBodyContent() {
+  Widget _buildMobileHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.sidebarColor,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade800)),
+      ),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/logo-romifleur.png',
+            height: 40,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Row(
+                children: [
+                  Icon(Icons.gamepad, color: AppTheme.textPrimary),
+                  SizedBox(width: 8),
+                  Text(
+                    'Romifleur',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings, color: AppTheme.textMuted),
+            splashRadius: 24,
+            constraints: const BoxConstraints(),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBodyContent({
+    bool showSidebarHeader = true,
+    bool showSettings = true,
+  }) {
     switch (_selectedIndex) {
       case 0:
-        return ConsoleSidebar(onConsoleSelected: _onConsoleSelected);
+        return ConsoleSidebar(
+          onConsoleSelected: _onConsoleSelected,
+          showHeader: showSidebarHeader,
+          showSettings: showSettings,
+        );
       case 1:
         return const RomListPanel();
       case 2:

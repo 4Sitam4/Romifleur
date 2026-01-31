@@ -335,12 +335,18 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
 
         await for (final fileProgress in stream) {
           // Calculate smooth percentage
+          // Weight: Download = 90%, Extraction = 10%
+          double normalizedProgress;
+          if (fileProgress <= 1.0) {
+            normalizedProgress = fileProgress * 0.9;
+          } else {
+            normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
+          }
+
           final double itemContribution = 1.0 / totalCount;
           final double currentBase = (processedCount - 1) / totalCount;
           final double actual =
-              (currentBase +
-                  (itemContribution * (fileProgress > 1 ? 1 : fileProgress))) *
-              100;
+              (currentBase + (itemContribution * normalizedProgress)) * 100;
 
           state = state.copyWith(
             progress: DownloadProgress(
@@ -348,8 +354,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               total: totalCount,
               currentFile: item.filename,
               status: fileProgress > 1.0
-                  ? 'Extracting...'
-                  : 'Downloading ${item.filename}',
+                  // Show Extracting % based on the 1.0-2.0 range
+                  ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
+                  : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
               percentage: actual,
               isDownloading: true,
             ),
@@ -380,6 +387,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
 
     state = state.copyWith(
       isLoading: false,
+      items: [], // Clear queue on completion
       progress: DownloadProgress(
         current: totalCount,
         total: totalCount,

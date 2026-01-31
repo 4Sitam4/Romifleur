@@ -301,24 +301,43 @@ class RomService {
     await sink.close();
 
     // Rename
+    print('✅ Download complete. Renaming to $finalPath');
     await file.rename(finalPath);
 
     // Extract if needed
     if (filename.toLowerCase().endsWith('.zip')) {
-      yield 1.1; // Special code for "Extracting"
-      await _extractZip(finalPath);
+      print('📦 Zip file detected. Starting extraction stream...');
+      yield 1.01; // Signaling extraction start
+      try {
+        await for (final progress in _extractZipStream(finalPath)) {
+          // Map 0.0-1.0 extraction to 1.0-2.0 overall progress
+          yield 1.0 + progress;
+        }
+        print('✅ Extraction stream completed.');
+      } catch (e) {
+        print('❌ Extraction stream error: $e');
+        // Continue to finish even if extraction fails?
+        // Ideally we throw, but for progress bar consistency we might want to finish.
+        // Rethrow for now to let provider handle error.
+        rethrow;
+      }
     }
 
-    yield 1.0;
+    print('🎉 Process finished for $filename');
+    yield 2.0; // Done
   }
 
-  Future<void> _extractZip(String zipPath) async {
+  Stream<double> _extractZipStream(String zipPath) async* {
     try {
       print('📦 Extracting: $zipPath');
       final dir = p.dirname(zipPath);
 
+      // Use InputFileStream for memory efficiency (crucial for large files)
       final inputStream = InputFileStream(zipPath);
       final archive = ZipDecoder().decodeBuffer(inputStream);
+
+      final totalFiles = archive.files.where((f) => f.isFile).length;
+      int processed = 0;
 
       for (var file in archive.files) {
         if (file.isFile) {
@@ -328,14 +347,18 @@ class RomService {
           final outputStream = OutputFileStream(filePath);
           file.writeContent(outputStream);
           outputStream.close();
+
+          processed++;
+          yield processed / totalFiles;
         }
       }
       inputStream.close();
 
-      // Delete zip
+      // Delete zip after successful extraction
       await File(zipPath).delete();
     } catch (e) {
       print('⚠️ Extraction failed: $e');
+      throw e; // Propagate error
     }
   }
 }

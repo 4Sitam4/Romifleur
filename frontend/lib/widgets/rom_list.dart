@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../models/rom.dart';
-import '../models/download.dart';
 
 class RomListPanel extends ConsumerStatefulWidget {
   const RomListPanel({super.key});
@@ -16,6 +16,16 @@ class RomListPanel extends ConsumerStatefulWidget {
 class _RomListPanelState extends ConsumerState<RomListPanel> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
+  String? _addToQueueMessage;
+  Timer? _queueTimer;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    _queueTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -458,18 +468,35 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                         .read(downloadQueueProvider.notifier)
                         .addToQueue(category, consoleKey, selectedRoms);
                     ref.read(romsProvider.notifier).deselectAll();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Added ${selectedRoms.length} games to queue',
-                        ),
-                        backgroundColor: AppTheme.accentColor,
-                      ),
-                    );
+
+                    setState(() {
+                      _addToQueueMessage =
+                          'Added ${selectedRoms.length} games!';
+                    });
+
+                    _queueTimer?.cancel();
+                    _queueTimer = Timer(const Duration(seconds: 2), () {
+                      if (mounted) {
+                        setState(() {
+                          _addToQueueMessage = null;
+                        });
+                      }
+                    });
                   }
                 : null,
-            icon: const Icon(Icons.add_shopping_cart),
-            label: Text('Add to Queue (${state.selectedCount})'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _addToQueueMessage != null
+                  ? AppTheme.accentColor
+                  : null,
+            ),
+            icon: Icon(
+              _addToQueueMessage != null
+                  ? Icons.check
+                  : Icons.add_shopping_cart,
+            ),
+            label: Text(
+              _addToQueueMessage ?? 'Add to Queue (${state.selectedCount})',
+            ),
           ),
         ],
       ),
@@ -482,13 +509,6 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
       builder: (context) =>
           _GameDetailsDialog(rom: rom, consoleKey: consoleKey),
     );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 }
 
@@ -809,8 +829,6 @@ class _RomListItem extends StatelessWidget {
                         size: 14,
                         color: AppTheme.achievementGold,
                       ),
-                      SizedBox(width: 4),
-                      Text('🏆', style: TextStyle(fontSize: 12)),
                     ],
                   ),
                 ),

@@ -4,11 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../models/console.dart';
+import '../screens/settings_screen.dart';
 
 class ConsoleSidebar extends ConsumerWidget {
   final VoidCallback? onConsoleSelected;
+  final bool showHeader;
+  final bool showSettings;
 
-  const ConsoleSidebar({super.key, this.onConsoleSelected});
+  const ConsoleSidebar({
+    super.key,
+    this.onConsoleSelected,
+    this.showHeader = true,
+    this.showSettings = true,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,37 +32,52 @@ class ConsoleSidebar extends ConsumerWidget {
       child: Column(
         children: [
           // Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primaryColor, AppTheme.accentColor],
+          if (showHeader)
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/logo-romifleur.png',
+                    height: 60,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Row(
+                        children: [
+                          Icon(Icons.broken_image, color: AppTheme.errorColor),
+                          SizedBox(width: 8),
+                          Text(
+                            'Romifleur',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const Spacer(),
+
+                  if (showSettings)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.settings,
+                        color: AppTheme.textMuted,
+                      ),
+                      splashRadius: 20,
+                      tooltip: 'Settings',
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const SettingsDialog(),
+                        );
+                      },
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.gamepad,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'Romifleur',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
           const Divider(height: 1),
 
@@ -250,7 +273,7 @@ class _ConsoleItem extends ConsumerWidget {
             children: [
               Icon(
                 _getConsoleIcon(),
-                size: 18,
+                size: 24,
                 color: isSelected
                     ? AppTheme.primaryColor
                     : AppTheme.textSecondary,

@@ -83,8 +83,14 @@ class DownloadPanel extends ConsumerWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: state.progress.percentage,
+                      value: state.progress.percentage / 100.0,
                       minHeight: 8,
+                      backgroundColor: AppTheme.textMuted.withOpacity(0.2),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        state.progress.status.startsWith('Extracting')
+                            ? Colors.purpleAccent
+                            : AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),
