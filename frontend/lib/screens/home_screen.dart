@@ -22,7 +22,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(downloadQueueProvider.notifier).loadQueue();
+      // ref.read(downloadQueueProvider.notifier).loadQueue();
+      // Queue is local now, minimal init needed
     });
   }
 

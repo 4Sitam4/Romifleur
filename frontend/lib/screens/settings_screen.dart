@@ -27,10 +27,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
   Future<void> _loadSettings() async {
     try {
-      final api = ref.read(apiServiceProvider);
-      final settings = await api.getSettings();
-      _romsPathController.text = settings['roms_path'] ?? '';
-      _raKeyController.text = settings['ra_api_key'] ?? '';
+      final config = ref.read(configServiceProvider);
+      _romsPathController.text = await config.getDownloadPath();
+      _raKeyController.text = config.raApiKey;
     } catch (e) {
       // Handle error
     }
@@ -51,19 +50,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       return;
     }
 
-    final api = ref.read(apiServiceProvider);
-    final valid = await api.validateRaKey(key);
+    final ra = ref.read(raServiceProvider);
+    final valid = await ra.validateKey(key);
     setState(() => _keyValid = valid);
   }
 
   Future<void> _saveSettings() async {
     setState(() => _isSaving = true);
 
-    final api = ref.read(apiServiceProvider);
-    await api.updateSettings(
-      romsPath: _romsPathController.text,
-      raApiKey: _raKeyController.text,
-    );
+    final config = ref.read(configServiceProvider);
+    await config.setDownloadPath(_romsPathController.text);
+    await config.setRaApiKey(_raKeyController.text);
 
     setState(() => _isSaving = false);
     if (mounted) {

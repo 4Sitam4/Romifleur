@@ -20,11 +20,14 @@ dependencies:
   
   # Networking
   dio: ^5.8.0
+  http: ^1.2.0
+  html: ^0.15.4
   web_socket_channel: ^3.0.3
   
   # Storage
   shared_preferences: ^2.3.4
   path_provider: ^2.1.5
+  archive: ^3.4.10
   
   # Images
   cached_network_image: ^3.4.1
@@ -45,3 +48,4 @@ flutter:
   
   assets:
     - assets/images/
+    - assets/data/

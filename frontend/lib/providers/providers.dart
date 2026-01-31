@@ -1,16 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/api_service.dart';
+import 'package:romifleur/services/config_service.dart';
+import 'package:romifleur/services/rom_service.dart';
+import 'package:romifleur/services/metadata_service.dart';
+import 'package:romifleur/services/ra_service.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
 import '../models/download.dart';
 
-// ===== API SERVICE PROVIDER =====
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+// ===== SERVICE PROVIDERS =====
+final configServiceProvider = Provider<ConfigService>((ref) => ConfigService());
+final romServiceProvider = Provider<RomService>((ref) => RomService());
+final metadataServiceProvider = Provider<MetadataService>(
+  (ref) => MetadataService(),
+);
+final raServiceProvider = Provider<RaService>((ref) => RaService());
 
 // ===== CONSOLES PROVIDER =====
 final consolesProvider = FutureProvider<List<CategoryModel>>((ref) async {
-  final api = ref.read(apiServiceProvider);
-  return api.getConsoles();
+  final config = ref.watch(configServiceProvider);
+  await config.init();
+
+  final data = config.consoles;
+  final List<CategoryModel> categories = [];
+
+  data.forEach((catName, consolesMap) {
+    final List<ConsoleModel> consoles = [];
+    consolesMap.forEach((key, val) {
+      final Map<String, dynamic> consoleData = Map.from(val);
+      consoleData['key'] = key;
+      consoles.add(ConsoleModel.fromJson(consoleData));
+    });
+    categories.add(CategoryModel(category: catName, consoles: consoles));
+  });
+
+  return categories;
 });
 
 // ===== SELECTED CONSOLE STATE =====
@@ -73,28 +96,57 @@ class RomsState {
 }
 
 class RomsNotifier extends StateNotifier<RomsState> {
-  final ApiService api;
+  final RomService romService;
+  final RaService raService;
   String? _currentCategory;
   String? _currentConsoleKey;
 
-  RomsNotifier(this.api) : super(const RomsState());
+  RomsNotifier(this.romService, this.raService) : super(const RomsState());
 
   Future<void> loadRoms(String category, String consoleKey) async {
     _currentCategory = category;
     _currentConsoleKey = consoleKey;
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (_currentCategory == null || _currentConsoleKey == null) return;
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final roms = await api.getRoms(
-        category: category,
-        consoleKey: consoleKey,
-        query: state.searchQuery,
+      // 1. Fetch filtered list
+      var roms = await romService.search(
+        _currentCategory!,
+        _currentConsoleKey!,
+        state.searchQuery,
         regions: state.selectedRegions.toList(),
         hideDemos: state.hideDemos,
         hideBetas: state.hideBetas,
-        onlyRa: state.onlyRa,
+        deduplicate: true, // Always deduplicate for now
       );
+
+      // 2. Filter RA if checked
+      if (state.onlyRa) {
+        await raService.init(); // ensure loaded
+        final List<RomModel> filtered = [];
+        for (var rom in roms) {
+          if (await raService.checkRomCompatibility(
+            _currentConsoleKey!,
+            rom.filename,
+          )) {
+            filtered.add(
+              RomModel(
+                filename: rom.filename,
+                size: rom.size,
+                hasAchievements: true,
+              ),
+            );
+          }
+        }
+        roms = filtered;
+      }
+
       state = state.copyWith(roms: roms, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -103,7 +155,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
 
   void setSearch(String query) {
     state = state.copyWith(searchQuery: query);
-    _reload();
+    _refresh();
   }
 
   void toggleRegion(String region) {
@@ -114,31 +166,26 @@ class RomsNotifier extends StateNotifier<RomsState> {
       regions.add(region);
     }
     state = state.copyWith(selectedRegions: regions);
-    _reload();
+    _refresh();
   }
 
   void toggleOnlyRa() {
     state = state.copyWith(onlyRa: !state.onlyRa);
-    _reload();
+    _refresh();
   }
 
   void toggleHideDemos() {
     state = state.copyWith(hideDemos: !state.hideDemos);
-    _reload();
+    _refresh();
   }
 
   void toggleHideBetas() {
     state = state.copyWith(hideBetas: !state.hideBetas);
-    _reload();
-  }
-
-  void _reload() {
-    if (_currentCategory != null && _currentConsoleKey != null) {
-      loadRoms(_currentCategory!, _currentConsoleKey!);
-    }
+    _refresh();
   }
 
   void toggleRomSelection(int index) {
+    if (index < 0 || index >= state.roms.length) return;
     final roms = List<RomModel>.from(state.roms);
     roms[index] = roms[index].copyWith(isSelected: !roms[index].isSelected);
     state = state.copyWith(roms: roms);
@@ -160,7 +207,10 @@ class RomsNotifier extends StateNotifier<RomsState> {
 }
 
 final romsProvider = StateNotifierProvider<RomsNotifier, RomsState>((ref) {
-  return RomsNotifier(ref.read(apiServiceProvider));
+  return RomsNotifier(
+    ref.watch(romServiceProvider),
+    ref.watch(raServiceProvider),
+  );
 });
 
 // ===== DOWNLOAD QUEUE PROVIDER =====
@@ -189,81 +239,162 @@ class DownloadQueueState {
 }
 
 class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
-  final ApiService api;
+  final RomService romService;
+  final ConfigService configService;
 
-  DownloadQueueNotifier(this.api) : super(const DownloadQueueState());
+  DownloadQueueNotifier(this.romService, this.configService)
+    : super(const DownloadQueueState());
 
-  Future<void> loadQueue() async {
-    try {
-      final items = await api.getQueue();
-      final progress = await api.getProgress();
-      state = state.copyWith(items: items, progress: progress);
-    } catch (e) {
-      // Ignore errors silently
-    }
-  }
+  void addToQueue(String category, String console, List<RomModel> roms) {
+    if (roms.isEmpty) return;
 
-  Future<void> addToQueue(
-    String category,
-    String console,
-    List<RomModel> roms,
-  ) async {
-    final items = roms
-        .map(
-          (r) => DownloadItem(
+    final currentItems = List<DownloadItem>.from(state.items);
+
+    for (var rom in roms) {
+      // Prevent duplicates in queue
+      if (!currentItems.any(
+        (i) => i.filename == rom.filename && i.console == console,
+      )) {
+        currentItems.add(
+          DownloadItem(
             category: category,
             console: console,
-            filename: r.filename,
-            size: r.size,
+            filename: rom.filename,
+            size: rom.size,
           ),
-        )
-        .toList();
+        );
+      }
+    }
 
-    await api.addBatchToQueue(items);
-    await loadQueue();
+    // Reset progress if we added items and weren't active
+    var p = state.progress;
+    if (state.items.isEmpty && currentItems.isNotEmpty) {
+      p = DownloadProgress(
+        total: currentItems.length,
+        current: 0,
+        status: 'Ready',
+      );
+    } else {
+      // Update total
+      p = DownloadProgress(
+        total: currentItems.length,
+        current: state.progress.current,
+        status: state.progress.status,
+        isDownloading: state.progress.isDownloading,
+      );
+    }
+
+    state = state.copyWith(items: currentItems, progress: p);
   }
 
-  Future<void> removeFromQueue(int index) async {
-    await api.removeFromQueue(index);
-    await loadQueue();
+  void removeFromQueue(int index) {
+    if (index < 0 || index >= state.items.length) return;
+    final items = List<DownloadItem>.from(state.items);
+    items.removeAt(index);
+    state = state.copyWith(items: items);
   }
 
-  Future<void> clearQueue() async {
-    await api.clearQueue();
-    await loadQueue();
+  void clearQueue() {
+    if (state.progress.isDownloading)
+      return; // Prevent clearing while downloading
+    state = state.copyWith(items: [], progress: const DownloadProgress());
   }
 
   Future<void> startDownloads() async {
+    if (state.isLoading || state.progress.isDownloading) return;
+
     state = state.copyWith(isLoading: true);
-    await api.startDownloads();
+    final itemsToDownload = List<DownloadItem>.from(state.items);
+    final totalCount = itemsToDownload.length;
+    final saveDir = await configService.getDownloadPath();
 
-    // Poll for progress
-    while (true) {
-      await Future.delayed(const Duration(seconds: 1));
-      final progress = await api.getProgress();
-      state = state.copyWith(progress: progress);
+    int processedCount = 0;
 
-      if (!progress.isDownloading &&
-          progress.current == progress.total &&
-          progress.total > 0) {
-        break;
+    for (var item in itemsToDownload) {
+      processedCount++;
+
+      // Update Status
+      state = state.copyWith(
+        progress: DownloadProgress(
+          current: processedCount,
+          total: totalCount,
+          currentFile: item.filename,
+          status: 'Downloading...',
+          percentage: ((processedCount - 1) / totalCount) * 100,
+          isDownloading: true,
+        ),
+      );
+
+      try {
+        final stream = romService.downloadFile(
+          item.category,
+          item.console,
+          item.filename,
+          saveDir: saveDir,
+        );
+
+        await for (final fileProgress in stream) {
+          // Calculate smooth percentage
+          final double itemContribution = 1.0 / totalCount;
+          final double currentBase = (processedCount - 1) / totalCount;
+          final double actual =
+              (currentBase +
+                  (itemContribution * (fileProgress > 1 ? 1 : fileProgress))) *
+              100;
+
+          state = state.copyWith(
+            progress: DownloadProgress(
+              current: processedCount,
+              total: totalCount,
+              currentFile: item.filename,
+              status: fileProgress > 1.0
+                  ? 'Extracting...'
+                  : 'Downloading ${item.filename}',
+              percentage: actual,
+              isDownloading: true,
+            ),
+          );
+        }
+      } catch (e) {
+        print('Download Error: $e');
+        state = state.copyWith(
+          progress: DownloadProgress(
+            current: processedCount,
+            total: totalCount,
+            currentFile: item.filename,
+            status: 'Error: $e',
+            isDownloading: true,
+          ),
+        );
+        await Future.delayed(const Duration(milliseconds: 500));
       }
-      if (!progress.isDownloading && progress.total == 0) {
-        break;
-      }
+
+      // Remove from queue as done (optional, but requested by user flow usually)
+      // Actually, typical download managers keep list until cleared.
+      // But for "Queue" typically it consumes items.
+      // Let's remove this item from the list to show it's done?
+      // Or keep it. Python backend kept it.
+      // The UI usually shows the list. If we remove it, it disappears.
+      // Let's keep it in list, but user can clear completed.
     }
 
-    await loadQueue();
-    state = state.copyWith(isLoading: false);
-  }
-
-  Future<void> refreshProgress() async {
-    final progress = await api.getProgress();
-    state = state.copyWith(progress: progress);
+    state = state.copyWith(
+      isLoading: false,
+      progress: DownloadProgress(
+        current: totalCount,
+        total: totalCount,
+        percentage: 100,
+        status: 'All Done!',
+        isDownloading: false,
+      ),
+    );
   }
 }
 
 final downloadQueueProvider =
     StateNotifierProvider<DownloadQueueNotifier, DownloadQueueState>((ref) {
-      return DownloadQueueNotifier(ref.read(apiServiceProvider));
+      return DownloadQueueNotifier(
+        ref.watch(romServiceProvider),
+        ref.watch(configServiceProvider),
+      );
     });

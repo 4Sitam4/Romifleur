@@ -454,7 +454,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                     final selectedRoms = ref
                         .read(romsProvider.notifier)
                         .getSelectedRoms();
-                    await ref
+                    ref
                         .read(downloadQueueProvider.notifier)
                         .addToQueue(category, consoleKey, selectedRoms);
                     ref.read(romsProvider.notifier).deselectAll();
@@ -514,8 +514,8 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
 
   Future<void> _loadMetadata() async {
     try {
-      final api = ref.read(apiServiceProvider);
-      final data = await api.getMetadata(
+      final metadata = ref.read(metadataServiceProvider);
+      final data = await metadata.getMetadata(
         widget.consoleKey,
         widget.rom.filename,
       );
