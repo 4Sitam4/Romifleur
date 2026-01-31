@@ -8,7 +8,7 @@ from ..models.schemas import UserSettings, UpdateSettingsRequest
 router = APIRouter()
 
 
-@router.get("/", response_model=UserSettings)
+@router.get("", response_model=UserSettings)
 async def get_settings(request: Request):
     """Get current user settings."""
     config = request.app.state.config
@@ -19,7 +19,7 @@ async def get_settings(request: Request):
     )
 
 
-@router.put("/")
+@router.put("")
 async def update_settings(request: Request, settings: UpdateSettingsRequest):
     """Update user settings."""
     config = request.app.state.config

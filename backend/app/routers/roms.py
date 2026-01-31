@@ -18,7 +18,8 @@ async def get_roms(
     regions: Optional[str] = Query(None, description="Comma-separated regions: Europe,USA,Japan"),
     hide_demos: bool = Query(True, description="Hide demo ROMs"),
     hide_betas: bool = Query(True, description="Hide beta/prototype ROMs"),
-    deduplicate: bool = Query(True, description="Show only best version of each game")
+    deduplicate: bool = Query(True, description="Show only best version of each game"),
+    only_ra: bool = Query(False, description="Show only games with RetroAchievements")
 ):
     """
     Get ROM list for a console with optional filtering.
@@ -54,6 +55,11 @@ async def get_roms(
     files = []
     for rom in roms:
         has_achievements = ra_manager.is_compatible(rom["name"], ra_games) if ra_games else False
+        
+        # Filter by RA support if requested
+        if only_ra and not has_achievements:
+            continue
+            
         files.append(RomFile(
             filename=rom["name"],
             size=rom.get("size", "N/A"),

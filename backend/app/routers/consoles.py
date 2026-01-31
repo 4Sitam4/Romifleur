@@ -9,7 +9,7 @@ from ..models.schemas import ConsoleInfo, CategoryConsoles, ConsolesResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=ConsolesResponse)
+@router.get("", response_model=ConsolesResponse)
 async def get_all_consoles(request: Request):
     """Get full console catalog grouped by category."""
     consoles = request.app.state.rom_manager.get_all_consoles()

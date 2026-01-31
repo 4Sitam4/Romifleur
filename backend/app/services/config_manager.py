@@ -30,8 +30,11 @@ class ConfigManager:
             # Running as compiled - use app directory
             base = os.path.dirname(sys.executable)
         else:
-            # Running as script - use backend directory
-            base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # Running as script - use backend/app directory
+            # __file__ = backend/app/services/config_manager.py
+            # dirname = backend/app/services
+            # dirname = backend/app
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
         return os.path.join(base, "data")
 
@@ -48,11 +51,16 @@ class ConfigManager:
     def load_settings(self) -> dict:
         """Load user settings from JSON file."""
         path = os.path.join(self.data_dir, self.settings_file)
+        logger.info(f"Loading settings from: {path}")
         
         try:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    settings = json.load(f)
+                    logger.info(f"Settings loaded: {settings}")
+                    return settings
+            else:
+                logger.warning(f"Settings file not found at {path}, using defaults")
         except Exception as e:
             logger.error(f"Error loading settings: {e}")
         
@@ -62,11 +70,13 @@ class ConfigManager:
     def save_settings(self) -> bool:
         """Save user settings to JSON file."""
         path = os.path.join(self.data_dir, self.settings_file)
+        logger.info(f"Saving settings to: {path}")
         
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self.settings, f, indent=4)
+            logger.info("Settings saved successfully")
             return True
         except Exception as e:
             logger.error(f"Error saving settings: {e}")

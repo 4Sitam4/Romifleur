@@ -94,10 +94,10 @@ class AddToQueueBatchRequest(BaseModel):
 class GameMetadata(BaseModel):
     """Game metadata from TheGamesDB or RetroAchievements"""
     title: str
-    description: str = ""
-    release_date: str = ""
-    image_url: str = ""
-    provider: str = ""
+    description: Optional[str] = None
+    release_date: Optional[str] = None
+    image_url: Optional[str] = None
+    provider: Optional[str] = None
     has_achievements: bool = False
 
 

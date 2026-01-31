@@ -34,6 +34,7 @@ class RomsState {
   final Set<String> selectedRegions;
   final bool hideDemos;
   final bool hideBetas;
+  final bool onlyRa;
 
   const RomsState({
     this.roms = const [],
@@ -43,6 +44,7 @@ class RomsState {
     this.selectedRegions = const {'Europe', 'USA', 'Japan'},
     this.hideDemos = true,
     this.hideBetas = true,
+    this.onlyRa = false,
   });
 
   RomsState copyWith({
@@ -53,6 +55,7 @@ class RomsState {
     Set<String>? selectedRegions,
     bool? hideDemos,
     bool? hideBetas,
+    bool? onlyRa,
   }) {
     return RomsState(
       roms: roms ?? this.roms,
@@ -62,6 +65,7 @@ class RomsState {
       selectedRegions: selectedRegions ?? this.selectedRegions,
       hideDemos: hideDemos ?? this.hideDemos,
       hideBetas: hideBetas ?? this.hideBetas,
+      onlyRa: onlyRa ?? this.onlyRa,
     );
   }
 
@@ -89,6 +93,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
         regions: state.selectedRegions.toList(),
         hideDemos: state.hideDemos,
         hideBetas: state.hideBetas,
+        onlyRa: state.onlyRa,
       );
       state = state.copyWith(roms: roms, isLoading: false);
     } catch (e) {
@@ -98,9 +103,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
 
   void setSearch(String query) {
     state = state.copyWith(searchQuery: query);
-    if (_currentCategory != null && _currentConsoleKey != null) {
-      loadRoms(_currentCategory!, _currentConsoleKey!);
-    }
+    _reload();
   }
 
   void toggleRegion(String region) {
@@ -111,6 +114,25 @@ class RomsNotifier extends StateNotifier<RomsState> {
       regions.add(region);
     }
     state = state.copyWith(selectedRegions: regions);
+    _reload();
+  }
+
+  void toggleOnlyRa() {
+    state = state.copyWith(onlyRa: !state.onlyRa);
+    _reload();
+  }
+
+  void toggleHideDemos() {
+    state = state.copyWith(hideDemos: !state.hideDemos);
+    _reload();
+  }
+
+  void toggleHideBetas() {
+    state = state.copyWith(hideBetas: !state.hideBetas);
+    _reload();
+  }
+
+  void _reload() {
     if (_currentCategory != null && _currentConsoleKey != null) {
       loadRoms(_currentCategory!, _currentConsoleKey!);
     }

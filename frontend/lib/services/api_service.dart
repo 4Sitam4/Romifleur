@@ -44,6 +44,7 @@ class ApiService {
     bool hideDemos = true,
     bool hideBetas = true,
     bool deduplicate = true,
+    bool onlyRa = false,
   }) async {
     try {
       final params = <String, dynamic>{
@@ -51,6 +52,7 @@ class ApiService {
         'hide_demos': hideDemos,
         'hide_betas': hideBetas,
         'deduplicate': deduplicate,
+        'only_ra': onlyRa,
       };
       if (regions != null && regions.isNotEmpty) {
         params['regions'] = regions.join(',');
@@ -184,6 +186,18 @@ class ApiService {
       return response.data['valid'] ?? false;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getMetadata(
+    String consoleKey,
+    String filename,
+  ) async {
+    try {
+      final response = await _dio.get(ApiConfig.metadata(consoleKey, filename));
+      return response.data;
+    } catch (e) {
+      throw Exception('Failed to load metadata: $e');
     }
   }
 }

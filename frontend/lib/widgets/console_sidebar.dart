@@ -6,7 +6,9 @@ import '../providers/providers.dart';
 import '../models/console.dart';
 
 class ConsoleSidebar extends ConsumerWidget {
-  const ConsoleSidebar({super.key});
+  final VoidCallback? onConsoleSelected;
+
+  const ConsoleSidebar({super.key, this.onConsoleSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,7 +16,7 @@ class ConsoleSidebar extends ConsumerWidget {
     final selected = ref.watch(selectedConsoleProvider);
 
     return Container(
-      width: 250,
+      // Remove fixed width here, let parent decide
       decoration: BoxDecoration(
         color: AppTheme.sidebarColor,
         border: Border(right: BorderSide(color: Colors.grey.shade800)),
@@ -90,6 +92,7 @@ class ConsoleSidebar extends ConsumerWidget {
                   return _CategorySection(
                     category: category,
                     selectedConsoleKey: selected.console?.key,
+                    onConsoleSelected: onConsoleSelected,
                   );
                 },
               ),
@@ -101,36 +104,89 @@ class ConsoleSidebar extends ConsumerWidget {
   }
 }
 
-class _CategorySection extends ConsumerWidget {
+class _CategorySection extends ConsumerStatefulWidget {
   final CategoryModel category;
   final String? selectedConsoleKey;
+  final VoidCallback? onConsoleSelected;
 
-  const _CategorySection({required this.category, this.selectedConsoleKey});
+  const _CategorySection({
+    required this.category,
+    this.selectedConsoleKey,
+    this.onConsoleSelected,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CategorySection> createState() => _CategorySectionState();
+}
+
+class _CategorySectionState extends ConsumerState<_CategorySection> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.category.consoles.any(
+      (c) => c.key == widget.selectedConsoleKey,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_CategorySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedConsoleKey != oldWidget.selectedConsoleKey) {
+      if (widget.category.consoles.any(
+        (c) => c.key == widget.selectedConsoleKey,
+      )) {
+        _isExpanded = true;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            category.category.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textMuted,
-              letterSpacing: 1.2,
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.category.category.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMuted,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _isExpanded ? Icons.expand_less : Icons.expand_more,
+                  size: 16,
+                  color: AppTheme.textMuted,
+                ),
+              ],
             ),
           ),
         ),
-        ...category.consoles.map(
-          (console) => _ConsoleItem(
-            category: category.category,
-            console: console,
-            isSelected: console.key == selectedConsoleKey,
+
+        if (_isExpanded)
+          ...widget.category.consoles.map(
+            (console) => _ConsoleItem(
+              category: widget.category.category,
+              console: console,
+              isSelected: console.key == widget.selectedConsoleKey,
+              onTap: widget.onConsoleSelected,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -140,11 +196,13 @@ class _ConsoleItem extends ConsumerWidget {
   final String category;
   final ConsoleModel console;
   final bool isSelected;
+  final VoidCallback? onTap;
 
   const _ConsoleItem({
     required this.category,
     required this.console,
     required this.isSelected,
+    this.onTap,
   });
 
   IconData _getConsoleIcon() {
@@ -175,6 +233,7 @@ class _ConsoleItem extends ConsumerWidget {
           ref.read(selectedConsoleProvider.notifier).state =
               SelectedConsoleState(category: category, console: console);
           ref.read(romsProvider.notifier).loadRoms(category, console.key);
+          onTap?.call();
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
