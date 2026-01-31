@@ -5,6 +5,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:romifleur/services/config_service.dart';
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
 
@@ -275,6 +276,11 @@ class RomService {
     print('⬇️ Downloading: $downloadUrl to $finalPath');
 
     final request = http.Request('GET', Uri.parse(downloadUrl));
+    request.headers.addAll({
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': baseUrl,
+    });
     final response = await request.send();
 
     final totalLength = response.contentLength ?? 0;
@@ -309,20 +315,22 @@ class RomService {
   Future<void> _extractZip(String zipPath) async {
     try {
       print('📦 Extracting: $zipPath');
-      final bytes = await File(zipPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-
       final dir = p.dirname(zipPath);
 
-      for (final file in archive) {
-        final filename = file.name;
+      final inputStream = InputFileStream(zipPath);
+      final archive = ZipDecoder().decodeBuffer(inputStream);
+
+      for (var file in archive.files) {
         if (file.isFile) {
-          final data = file.content as List<int>;
-          File(p.join(dir, filename))
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(data);
+          final filePath = p.join(dir, file.name);
+          Directory(p.dirname(filePath)).createSync(recursive: true);
+
+          final outputStream = OutputFileStream(filePath);
+          file.writeContent(outputStream);
+          outputStream.close();
         }
       }
+      inputStream.close();
 
       // Delete zip
       await File(zipPath).delete();
