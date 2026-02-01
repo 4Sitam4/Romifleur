@@ -39,11 +39,15 @@ jobs:
           name: romifleur-windows
           path: app/build/windows/x64/runner/Release/
 
+      - name: Zip Windows App
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath romifleur-windows.zip
+
       - name: Release Windows
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: app/build/windows/x64/runner/Release/*
+          files: romifleur-windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
