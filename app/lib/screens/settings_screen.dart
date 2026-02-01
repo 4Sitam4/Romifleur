@@ -78,121 +78,126 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
         padding: const EdgeInsets.all(24),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      const Icon(Icons.settings, color: AppTheme.primaryColor),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Settings',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.settings,
+                          color: AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Settings',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
-                  // ROMs Path
-                  Text(
-                    'Download Location',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _romsPathController,
-                          decoration: const InputDecoration(
-                            hintText: 'Path to save ROMs',
-                            prefixIcon: Icon(Icons.folder),
+                    // ROMs Path
+                    Text(
+                      'Download Location',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _romsPathController,
+                            decoration: const InputDecoration(
+                              hintText: 'Path to save ROMs',
+                              prefixIcon: Icon(Icons.folder),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: _pickFolder,
-                        icon: const Icon(Icons.folder_open),
-                        label: const Text('Browse'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _pickFolder,
+                          icon: const Icon(Icons.folder_open),
+                          label: const Text('Browse'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
-                  // RetroAchievements API Key
-                  Text(
-                    'RetroAchievements API Key',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Get your key from retroachievements.org/controlpanel.php',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _raKeyController,
-                          obscureText: true,
-                          decoration: InputDecoration(
-                            hintText: 'Your Web API Key',
-                            prefixIcon: const Icon(Icons.key),
-                            suffixIcon: _keyValid == null
-                                ? null
-                                : Icon(
-                                    _keyValid!
-                                        ? Icons.check_circle
-                                        : Icons.error,
-                                    color: _keyValid!
-                                        ? AppTheme.accentColor
-                                        : AppTheme.errorColor,
+                    // RetroAchievements API Key
+                    Text(
+                      'RetroAchievements API Key',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Get your key from retroachievements.org/controlpanel.php',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _raKeyController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              hintText: 'Your Web API Key',
+                              prefixIcon: const Icon(Icons.key),
+                              suffixIcon: _keyValid == null
+                                  ? null
+                                  : Icon(
+                                      _keyValid!
+                                          ? Icons.check_circle
+                                          : Icons.error,
+                                      color: _keyValid!
+                                          ? AppTheme.accentColor
+                                          : AppTheme.errorColor,
+                                    ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: _validateKey,
+                          child: const Text('Validate'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: _isSaving ? null : _saveSettings,
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
-                          ),
+                                )
+                              : const Text('Save'),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: _validateKey,
-                        child: const Text('Validate'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: _isSaving ? null : _saveSettings,
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save'),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
       ),
     );

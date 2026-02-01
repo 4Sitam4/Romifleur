@@ -32,9 +32,10 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
     final selectedConsole = ref.watch(selectedConsoleProvider);
     final romsState = ref.watch(romsProvider);
     final isCompact =
-        MediaQuery.of(context).size.width < 600 ||
+        MediaQuery.of(context).size.width < 960 ||
         MediaQuery.of(context).size.height < 500 ||
         MediaQuery.of(context).orientation == Orientation.landscape;
+    // MediaQuery.of(context).size.height < 500;
 
     if (selectedConsole.console == null) {
       return _buildEmptyState();
