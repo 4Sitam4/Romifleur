@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.7] - 2026-02-01
+### Fixed
+- **Android**: Fixed `PathAccessException` on Android 11+ (Galaxy Fold, Pixel, etc.) by properly requesting Storage Permissions (`MANAGE_EXTERNAL_STORAGE`).
+- **Android**: Added `permission_handler` to manage runtime permissions for downloads.
+
 ## [3.0.6] - 2026-02-01
 ### Fixed
 - **Android UI**: Resolved filter screen overflow issues on smaller devices.

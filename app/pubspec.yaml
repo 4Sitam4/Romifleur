@@ -1,7 +1,7 @@
 name: romifleur
 description: "Romifleur - ROM Downloader with RetroAchievements support"
 publish_to: 'none'
-version: 3.0.6+1
+version: 3.0.7+1
 
 environment:
   sdk: ^3.10.8
@@ -20,7 +20,8 @@ dependencies:
   
   # Networking
   dio: ^5.8.0
-  http: ^1.2.0
+  permission_handler: ^11.3.0
+  sqflite: ^2.2.8+40
   html: ^0.15.4
   web_socket_channel: ^3.0.3
   

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
@@ -235,6 +237,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           actions: [
             ElevatedButton(
               onPressed: () async {
+                if (!kIsWeb && Platform.isAndroid) {
+                  final granted = await _requestStoragePermission();
+                  if (!granted) return;
+                }
+
                 final String? result = await FilePicker.platform
                     .getDirectoryPath();
                 if (result != null && mounted) {
@@ -247,6 +254,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    // Android 11+ (API 30+) requires MANAGE_EXTERNAL_STORAGE for arbitrary folder access
+    // But verify if we really need it. For "PathAccessException", standard filtering might fail.
+    // Ideally we should try basic storage first.
+
+    // Check for Manage External Storage (Android 11+)
+    if (await Permission.manageExternalStorage.status.isGranted) {
+      return true;
+    }
+
+    if (await Permission.storage.request().isGranted) {
+      return true;
+    }
+
+    // If storage is denied or restricted (Android 11+), try requesting Manage External Storage
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      return true;
+    }
+
+    // If we are here, permission is denied.
+    // On Android 13+, photos/audio/video permissions are separate but for generic files logic is complex.
+    // Let's try to request manageExternalStorage again if it's permanently denied or open settings.
+
+    if (await Permission.manageExternalStorage.isPermanentlyDenied ||
+        await Permission.storage.isPermanentlyDenied) {
+      if (mounted) {
+        _showPermissionDialog();
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Storage Permission Required'),
+        content: const Text(
+          'To download ROMs to your device, Romifleur needs access to your storage. Please grant the "All files access" or Storage permission in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(context);
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
       ),
     );
   }
