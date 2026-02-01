@@ -1,3 +1,5 @@
+name: Build Desktop
+
 on:
   push:
     tags: ["v*"]
@@ -101,7 +103,7 @@ jobs:
         working-directory: ./app
         run: |
           # 1. Install dependencies
-          sudo apt-get install -y libfuse2 file
+          sudo apt-get install -y libfuse2 file imagemagick
 
           # 2. Prepare AppDir
           mkdir -p AppDir
@@ -125,9 +127,9 @@ jobs:
           Categories=Utility;Game;
           EOF
 
-          # 5. Create Icon (Copy from assets)
+          # 5. Create Icon (Resize to 256x256)
           if [ -f assets/logo-romifleur.png ]; then
-            cp assets/logo-romifleur.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+            convert assets/logo-romifleur.png -resize 256x256 AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
           else
              cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
           fi
