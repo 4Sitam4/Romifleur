@@ -143,7 +143,8 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search $consoleName...',
+                  hintText:
+                      'Search in ${state.roms.length} $consoleName games...',
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -182,6 +183,39 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
               ),
               tooltip: 'Filters',
               onPressed: () => _showFilterSheet(state),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: 'Selection',
+              onSelected: (value) {
+                if (value == 'all') {
+                  ref.read(romsProvider.notifier).selectAll();
+                } else if (value == 'none') {
+                  ref.read(romsProvider.notifier).deselectAll();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.select_all, size: 20),
+                      SizedBox(width: 12),
+                      Text('Select All'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'none',
+                  child: Row(
+                    children: [
+                      Icon(Icons.deselect, size: 20),
+                      SizedBox(width: 12),
+                      Text('Deselect All'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
