@@ -1,6 +1,0 @@
-customtkinter
-requests
-beautifulsoup4
-pillow
-py7zr
-pyinstaller
