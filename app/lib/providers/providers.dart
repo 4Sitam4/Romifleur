@@ -218,22 +218,26 @@ class DownloadQueueState {
   final List<DownloadItem> items;
   final DownloadProgress progress;
   final bool isLoading;
+  final String totalSize;
 
   const DownloadQueueState({
     this.items = const [],
     this.progress = const DownloadProgress(),
     this.isLoading = false,
+    this.totalSize = '0 B',
   });
 
   DownloadQueueState copyWith({
     List<DownloadItem>? items,
     DownloadProgress? progress,
     bool? isLoading,
+    String? totalSize,
   }) {
     return DownloadQueueState(
       items: items ?? this.items,
       progress: progress ?? this.progress,
       isLoading: isLoading ?? this.isLoading,
+      totalSize: totalSize ?? this.totalSize,
     );
   }
 }
@@ -249,9 +253,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     if (roms.isEmpty) return;
 
     final currentItems = List<DownloadItem>.from(state.items);
+    double currentBytes = _parseSizeToBytes(state.totalSize);
 
     for (var rom in roms) {
-      // Prevent duplicates in queue
       if (!currentItems.any(
         (i) => i.filename == rom.filename && i.console == console,
       )) {
@@ -263,10 +267,10 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             size: rom.size,
           ),
         );
+        currentBytes += _parseSizeToBytes(rom.size);
       }
     }
 
-    // Reset progress if we added items and weren't active
     var p = state.progress;
     if (state.items.isEmpty && currentItems.isNotEmpty) {
       p = DownloadProgress(
@@ -275,7 +279,6 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         status: 'Ready',
       );
     } else {
-      // Update total
       p = DownloadProgress(
         total: currentItems.length,
         current: state.progress.current,
@@ -284,20 +287,70 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
       );
     }
 
-    state = state.copyWith(items: currentItems, progress: p);
+    state = state.copyWith(
+      items: currentItems,
+      progress: p,
+      totalSize: _formatBytes(currentBytes),
+    );
   }
 
   void removeFromQueue(int index) {
     if (index < 0 || index >= state.items.length) return;
     final items = List<DownloadItem>.from(state.items);
-    items.removeAt(index);
-    state = state.copyWith(items: items);
+    final removed = items.removeAt(index);
+
+    double currentBytes = _parseSizeToBytes(state.totalSize);
+    currentBytes -= _parseSizeToBytes(removed.size);
+    if (currentBytes < 0) currentBytes = 0;
+
+    state = state.copyWith(items: items, totalSize: _formatBytes(currentBytes));
   }
 
   void clearQueue() {
-    if (state.progress.isDownloading)
-      return; // Prevent clearing while downloading
-    state = state.copyWith(items: [], progress: const DownloadProgress());
+    if (state.progress.isDownloading) return;
+    state = state.copyWith(
+      items: [],
+      progress: const DownloadProgress(),
+      totalSize: '0 B',
+    );
+  }
+
+  double _parseSizeToBytes(String sizeStr) {
+    if (sizeStr.isEmpty || sizeStr == 'N/A') return 0;
+
+    final parts = sizeStr.trim().split(' ');
+    if (parts.length != 2) return 0; // Simple fallback
+
+    final value = double.tryParse(parts[0]) ?? 0.0;
+    final unit = parts[1].toUpperCase();
+
+    switch (unit) {
+      case 'B':
+        return value;
+      case 'KIB':
+      case 'KB':
+        return value * 1024;
+      case 'MIB':
+      case 'MB':
+        return value * 1024 * 1024;
+      case 'GIB':
+      case 'GB':
+        return value * 1024 * 1024 * 1024;
+      default:
+        return value;
+    }
+  }
+
+  String _formatBytes(double bytes) {
+    if (bytes <= 0) return '0 B';
+    const suffixes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    var i = 0;
+    double tmp = bytes;
+    while (tmp >= 1024 && i < suffixes.length - 1) {
+      tmp /= 1024;
+      i++;
+    }
+    return '${tmp.toStringAsFixed(1)} ${suffixes[i]}';
   }
 
   Future<void> startDownloads() async {

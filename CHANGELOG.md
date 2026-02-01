@@ -2,10 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.7] - 2026-02-01
+## [3.1.0] - 2026-02-01
+### Added
+- **UI**: Added Total Download Size calculator in the "Start Downloads" button (e.g., "3.7 GB - Start Downloads").
+- **Linux**: Added AppImage support (`.AppImage`) for easier distribution.
+- **Distribution**: Structured release archives (Windows, Linux, MacOS) with a cleaner `Romifleur/` root folder.
+
 ### Fixed
-- **Android**: Fixed `PathAccessException` on Android 11+ (Galaxy Fold, Pixel, etc.) by properly requesting Storage Permissions (`MANAGE_EXTERNAL_STORAGE`).
-- **Android**: Added `permission_handler` to manage runtime permissions for downloads.
+- **Android**: Fixed `PathAccessException` on Android 11+ by implementing runtime storage permissions (`MANAGE_EXTERNAL_STORAGE`).
+- **Android**: Added `permission_handler` to manage runtime permissions.
 
 ## [3.0.6] - 2026-02-01
 ### Fixed

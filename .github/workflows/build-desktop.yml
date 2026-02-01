@@ -40,7 +40,10 @@ jobs:
 
       - name: Zip Windows App
         if: startsWith(github.ref, 'refs/tags/v')
-        run: Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath romifleur-windows.zip
+        run: |
+          mkdir Romifleur
+          Copy-Item -Path app/build/windows/x64/runner/Release/* -Destination Romifleur -Recurse
+          Compress-Archive -Path Romifleur -DestinationPath romifleur-windows.zip
 
       - name: Release Windows
         if: startsWith(github.ref, 'refs/tags/v')
@@ -77,22 +80,78 @@ jobs:
         working-directory: ./app
         run: flutter build linux --release
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: romifleur-linux
-          path: app/build/linux/x64/release/bundle/
-
       - name: Check/Create Tarball
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: ./app/build/linux/x64/release/bundle
-        run: tar -czvf romifleur-linux.tar.gz *
+        run: |
+          mkdir -p ../Linux_Release/Romifleur
+          cp -r * ../Linux_Release/Romifleur/
+          cd ../Linux_Release
+          tar -czvf ../../../../../romifleur-linux.tar.gz Romifleur
 
       - name: Release Linux
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: app/build/linux/x64/release/bundle/romifleur-linux.tar.gz
+          files: romifleur-linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create AppImage
+        working-directory: ./app
+        run: |
+          # 1. Install dependencies
+          sudo apt-get install -y libfuse2 file
+
+          # 2. Prepare AppDir
+          mkdir -p AppDir
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          # 3. Copy binaries and assets
+          cp build/linux/x64/release/bundle/romifleur AppDir/usr/bin/
+          cp -r build/linux/x64/release/bundle/data AppDir/usr/bin/
+          cp -r build/linux/x64/release/bundle/lib AppDir/usr/lib
+          
+          # 4. Create Desktop File
+          cat > AppDir/usr/share/applications/romifleur.desktop <<EOF
+          [Desktop Entry]
+          Name=Romifleur
+          Exec=romifleur
+          Icon=romifleur
+          Type=Application
+          Categories=Utility;Game;
+          EOF
+
+          # 5. Create Icon (Copy from assets)
+          if [ -f assets/logo-romifleur.png ]; then
+            cp assets/logo-romifleur.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+          else
+             cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+          fi
+
+          # 6. Download linuxdeploy
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20240109-1/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          # 7. Build AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/romifleur.desktop --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+
+      - name: Rename AppImage
+        run: mv app/*.AppImage romifleur-linux-x86_64.AppImage
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: romifleur-linux-appimage
+          path: romifleur-linux-x86_64.AppImage
+
+      - name: Release Linux AppImage
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: romifleur-linux-x86_64.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -128,8 +187,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cd app/build/macos/Build/Products/Release
-          zip -r romifleur-macos.zip romifleur.app
-
+          mkdir Romifleur
+          cp -r romifleur.app Romifleur/
+          zip -r romifleur-macos.zip Romifleur
+          
       - name: Release MacOS
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1

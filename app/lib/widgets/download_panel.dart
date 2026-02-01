@@ -183,7 +183,7 @@ class DownloadPanel extends ConsumerWidget {
                     label: Text(
                       state.progress.isDownloading
                           ? 'Downloading...'
-                          : 'Start Downloads 🚀',
+                          : '${state.totalSize} - Start Downloads',
                     ),
                   ),
                 ),
