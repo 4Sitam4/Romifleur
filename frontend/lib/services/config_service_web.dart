@@ -47,8 +47,9 @@ class ConfigService {
   }
 
   /// Web: Browser handles downloads. This path is essentially ignored/dummy.
-  Future<String> getDownloadPath() async {
-    return 'Downloads'; // Dummy return
+  /// Web: Browser handles downloads. This path is essentially ignored/dummy.
+  Future<String?> getDownloadPath() async {
+    return 'Downloads'; // Dummy return (Non-null implies configured)
   }
 
   Future<void> setDownloadPath(String path) async {

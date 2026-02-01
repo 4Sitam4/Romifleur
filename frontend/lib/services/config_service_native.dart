@@ -56,19 +56,14 @@ class ConfigService {
   }
 
   /// Get configured ROMs download path
-  Future<String> getDownloadPath() async {
+  /// Get configured ROMs download path
+  Future<String?> getDownloadPath() async {
     final String? savedPath = _prefs.getString(_kRomsPathKey);
     if (savedPath != null && await Directory(savedPath).exists()) {
       return savedPath;
     }
 
-    // Default to Documents/Romifleur
-    final defaultPath = await getDataDir();
-
-    // Save default for future
-    await _prefs.setString(_kRomsPathKey, defaultPath);
-
-    return defaultPath;
+    return null;
   }
 
   Future<void> setDownloadPath(String path) async {

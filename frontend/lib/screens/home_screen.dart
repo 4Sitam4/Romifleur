@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:file_picker/file_picker.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../widgets/console_sidebar.dart';
@@ -22,9 +24,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      // ref.read(downloadQueueProvider.notifier).loadQueue();
-      // Queue is local now, minimal init needed
+      _checkConfiguration();
     });
+  }
+
+  Future<void> _checkConfiguration() async {
+    // Web uses server-managed path, no setup needed here
+    if (kIsWeb) return;
+
+    final config = ref.read(configServiceProvider);
+    final path = await config.getDownloadPath();
+
+    if (path == null) {
+      if (mounted) {
+        _showSetupDialog();
+      }
+    }
+  }
+
+  Future<void> _showSetupDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false, // Prevent back button
+        child: AlertDialog(
+          backgroundColor: AppTheme.cardColor,
+          title: const Text('Welcome to Romifleur'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.folder_open,
+                size: 64,
+                color: AppTheme.primaryColor,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'To get started, please select a folder where your games will be downloaded.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                final String? result = await FilePicker.platform
+                    .getDirectoryPath();
+                if (result != null && mounted) {
+                  final config = ref.read(configServiceProvider);
+                  await config.setDownloadPath(result);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Select Folder'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onConsoleSelected() {
