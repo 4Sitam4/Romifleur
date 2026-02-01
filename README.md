@@ -40,7 +40,7 @@ Run Romifleur as a web service on your home server (NAS, VPS, Raspberry Pi).
 ```yaml
 services:
   romifleur:
-    image: ghcr.io/sitam/romifleur:latest
+    image: ghcr.io/4sitam4/romifleur:3.0.4
     container_name: romifleur-web
     ports:
       - "8080:8080"
@@ -68,8 +68,8 @@ docker run -p 8080:8080 -v "/path/to/your/roms:/app/data" ghcr.io/4sitam4/romifl
 
 **Clone & Setup:**
 ```bash
-git clone https://github.com/Sitam/Renifleur.git
-cd Renifleur/app
+git clone https://github.com/4Sitam4/Romifleur.git
+cd Romifleur/app
 flutter pub get
 ```
 
