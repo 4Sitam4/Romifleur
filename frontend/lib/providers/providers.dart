@@ -307,6 +307,17 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     final itemsToDownload = List<DownloadItem>.from(state.items);
     final totalCount = itemsToDownload.length;
     final saveDir = await configService.getDownloadPath();
+    if (saveDir == null) {
+      state = state.copyWith(
+        isLoading: false,
+        items: [],
+        progress: const DownloadProgress(
+          status: 'Error: Download path not set',
+          isDownloading: false,
+        ),
+      );
+      return;
+    }
 
     int processedCount = 0;
 

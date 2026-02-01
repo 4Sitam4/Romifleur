@@ -28,7 +28,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Future<void> _loadSettings() async {
     try {
       final config = ref.read(configServiceProvider);
-      _romsPathController.text = await config.getDownloadPath();
+      _romsPathController.text = await config.getDownloadPath() ?? '';
       _raKeyController.text = config.raApiKey;
     } catch (e) {
       // Handle error
