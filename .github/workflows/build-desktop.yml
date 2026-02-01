@@ -1,15 +1,14 @@
-name: Build Desktop
-
 on:
   push:
     branches: ["main", "refactoV3"]
+    tags: ["v*"]
     paths:
       - "app/**"
       - ".github/workflows/build-desktop.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows:
@@ -39,6 +38,14 @@ jobs:
         with:
           name: romifleur-windows
           path: app/build/windows/x64/runner/Release/
+
+      - name: Release Windows
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/windows/x64/runner/Release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
     runs-on: ubuntu-latest
@@ -73,6 +80,19 @@ jobs:
           name: romifleur-linux
           path: app/build/linux/x64/release/bundle/
 
+      - name: Check/Create Tarball
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: ./app/build/linux/x64/release/bundle
+        run: tar -czvf romifleur-linux.tar.gz *
+
+      - name: Release Linux
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/linux/x64/release/bundle/romifleur-linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-macos:
     runs-on: macos-latest
     steps:
@@ -100,3 +120,17 @@ jobs:
         with:
           name: romifleur-macos
           path: app/build/macos/Build/Products/Release/romifleur.app
+
+      - name: Zip MacOS App
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd app/build/macos/Build/Products/Release
+          zip -r romifleur-macos.zip romifleur.app
+
+      - name: Release MacOS
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/macos/Build/Products/Release/romifleur-macos.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

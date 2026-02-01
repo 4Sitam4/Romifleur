@@ -3,13 +3,14 @@ name: Build Android
 on:
   push:
     branches: ["main", "refactoV3"]
+    tags: ["v*"]
     paths:
       - "app/**"
       - ".github/workflows/build-android.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -43,3 +44,11 @@ jobs:
         with:
           name: romifleur-android
           path: app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: app/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
