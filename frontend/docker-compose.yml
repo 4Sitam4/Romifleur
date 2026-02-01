@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  romifleur-web:
+    build: .
+    container_name: romifleur-web
+    image: romifleur-web:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/app/data

@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+build
+.dart_tool
+.flutter-plugins*
+.packages
+pubspec.lock
+
+# Server ignores
+server/.dart_tool
+server/pubspec.lock
+server/.packages
