@@ -45,33 +45,79 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
         color: AppTheme.backgroundColor,
         border: Border(right: BorderSide(color: Colors.grey.shade800)),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Adaptive Header & Search
-          if (isCompact)
-            _buildCompactHeader(selectedConsole.console!.name, romsState)
-          else ...[
-            _buildHeader(selectedConsole.console!.name, romsState),
-            _buildSearchBar(romsState),
-          ],
+          Column(
+            children: [
+              // Adaptive Header & Search
+              if (isCompact)
+                _buildCompactHeader(selectedConsole.console!.name, romsState)
+              else ...[
+                _buildHeader(selectedConsole.console!.name, romsState),
+                _buildSearchBar(romsState),
+              ],
 
-          // ROM List
-          Expanded(
-            child: romsState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : romsState.error != null
-                ? _buildError(romsState.error!)
-                : romsState.roms.isEmpty
-                ? _buildNoResults()
-                : _buildRomList(romsState.roms, selectedConsole.console!.key),
+              // ROM List
+              Expanded(
+                child: romsState.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : romsState.error != null
+                    ? _buildError(romsState.error!)
+                    : romsState.roms.isEmpty
+                    ? _buildNoResults()
+                    : _buildRomList(
+                        romsState.roms,
+                        selectedConsole.console!.key,
+                      ),
+              ),
+            ],
           ),
 
-          // Bottom action bar
-          if (selectedConsole.console != null)
-            _buildBottomBar(
-              romsState,
-              selectedConsole.category!,
-              selectedConsole.console!.key,
+          // Floating Action Button for Add to Queue
+          if (romsState.selectedCount > 0)
+            Positioned(
+              right: 16 + MediaQuery.of(context).padding.right,
+              bottom: 16 + MediaQuery.of(context).padding.bottom,
+              child: FloatingActionButton.extended(
+                onPressed: () async {
+                  final selectedRoms = ref
+                      .read(romsProvider.notifier)
+                      .getSelectedRoms();
+                  ref
+                      .read(downloadQueueProvider.notifier)
+                      .addToQueue(
+                        selectedConsole.category!,
+                        selectedConsole.console!.key,
+                        selectedRoms,
+                      );
+                  ref.read(romsProvider.notifier).deselectAll();
+
+                  setState(() {
+                    _addToQueueMessage = 'Added ${selectedRoms.length} games!';
+                  });
+
+                  _queueTimer?.cancel();
+                  _queueTimer = Timer(const Duration(seconds: 2), () {
+                    if (mounted) {
+                      setState(() {
+                        _addToQueueMessage = null;
+                      });
+                    }
+                  });
+                },
+                backgroundColor: _addToQueueMessage != null
+                    ? AppTheme.accentColor
+                    : AppTheme.primaryColor,
+                icon: Icon(
+                  _addToQueueMessage != null
+                      ? Icons.check
+                      : Icons.add_shopping_cart,
+                ),
+                label: Text(
+                  _addToQueueMessage ??
+                      'Add to Queue (${romsState.selectedCount})',
+                ),
+              ),
             ),
         ],
       ),
@@ -81,58 +127,63 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
   // COMPACT MODE: Header + Search + Filter Button in one row
   Widget _buildCompactHeader(String consoleName, RomsState state) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 4,
+      ), // Reduced padding
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,
         border: Border(bottom: BorderSide(color: Colors.grey.shade800)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search $consoleName...',
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search $consoleName...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref.read(romsProvider.notifier).setSearch('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.black12,
                 ),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(romsProvider.notifier).setSearch('');
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+                onChanged: (value) =>
+                    ref.read(romsProvider.notifier).setSearch(value),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Badge(
+                label: Text(
+                  '${(state.onlyRa ? 1 : 0) + (state.hideDemos ? 1 : 0) + (state.hideBetas ? 1 : 0)}',
                 ),
-                filled: true,
-                fillColor: Colors.black12,
+                isLabelVisible:
+                    (state.onlyRa || state.hideDemos || state.hideBetas),
+                child: const Icon(Icons.tune),
               ),
-              onChanged: (value) =>
-                  ref.read(romsProvider.notifier).setSearch(value),
+              tooltip: 'Filters',
+              onPressed: () => _showFilterSheet(state),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Badge(
-              label: Text(
-                '${(state.onlyRa ? 1 : 0) + (state.hideDemos ? 1 : 0) + (state.hideBetas ? 1 : 0)}',
-              ),
-              isLabelVisible:
-                  (state.onlyRa || state.hideDemos || state.hideBetas),
-              child: const Icon(Icons.tune),
-            ),
-            tooltip: 'Filters',
-            onPressed: () => _showFilterSheet(state),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -140,62 +191,97 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
   void _showFilterSheet(RomsState state) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // Allow full height
       backgroundColor: AppTheme.cardColor,
       builder: (context) => Consumer(
         builder: (context, ref, _) {
-          // Re-watch state inside sheet to update UI on change
           final currentState = ref.watch(romsProvider);
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Filters",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+          return SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                // Combine viewInsets (keyboard) + padding (safe area) + spacing
+                bottom:
+                    MediaQuery.of(context).viewInsets.bottom +
+                    MediaQuery.of(context).padding.bottom +
+                    16,
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FilterChip(
-                      label: const Text('🏆 RA Only'),
-                      selected: currentState.onlyRa,
-                      onSelected: (_) =>
-                          ref.read(romsProvider.notifier).toggleOnlyRa(),
-                      selectedColor: AppTheme.achievementGold.withOpacity(0.3),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade700,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                    FilterChip(
-                      label: const Text('Hide Demo'),
-                      selected: currentState.hideDemos,
-                      onSelected: (_) =>
-                          ref.read(romsProvider.notifier).toggleHideDemos(),
+                    const Text(
+                      "Filters",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    FilterChip(
-                      label: const Text('Hide Beta'),
-                      selected: currentState.hideBetas,
-                      onSelected: (_) =>
-                          ref.read(romsProvider.notifier).toggleHideBetas(),
+                    const SizedBox(height: 16),
+                    // ... Filters wrap ...
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilterChip(
+                          label: const Text('🏆 RA Only'),
+                          selected: currentState.onlyRa,
+                          onSelected: (_) =>
+                              ref.read(romsProvider.notifier).toggleOnlyRa(),
+                          selectedColor: AppTheme.achievementGold.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                        FilterChip(
+                          label: const Text('Hide Demo'),
+                          selected: currentState.hideDemos,
+                          onSelected: (_) =>
+                              ref.read(romsProvider.notifier).toggleHideDemos(),
+                        ),
+                        FilterChip(
+                          label: const Text('Hide Beta'),
+                          selected: currentState.hideBetas,
+                          onSelected: (_) =>
+                              ref.read(romsProvider.notifier).toggleHideBetas(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Regions",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildRegionChip('Europe', '🇪🇺', currentState, ref),
+                        _buildRegionChip('USA', '🇺🇸', currentState, ref),
+                        _buildRegionChip('Japan', '🇯🇵', currentState, ref),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Regions",
-                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _buildRegionChip('Europe', '🇪🇺', currentState),
-                    _buildRegionChip('USA', '🇺🇸', currentState),
-                    _buildRegionChip('Japan', '🇯🇵', currentState),
-                  ],
-                ),
-              ],
+              ),
             ),
           );
         },
@@ -323,7 +409,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                 selected: state.onlyRa,
                 onSelected: (_) =>
                     ref.read(romsProvider.notifier).toggleOnlyRa(),
-                selectedColor: AppTheme.achievementGold.withOpacity(0.3),
+                selectedColor: AppTheme.achievementGold.withValues(alpha: 0.3),
                 side: BorderSide(
                   color: state.onlyRa
                       ? AppTheme.achievementGold
@@ -356,9 +442,9 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                 'Regions:',
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
-              _buildRegionChip('Europe', '🇪🇺', state),
-              _buildRegionChip('USA', '🇺🇸', state),
-              _buildRegionChip('Japan', '🇯🇵', state),
+              _buildRegionChip('Europe', '🇪🇺', state, ref),
+              _buildRegionChip('USA', '🇺🇸', state, ref),
+              _buildRegionChip('Japan', '🇯🇵', state, ref),
               // Select/Deselect All buttons
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -382,13 +468,18 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
     );
   }
 
-  Widget _buildRegionChip(String region, String flag, RomsState state) {
+  Widget _buildRegionChip(
+    String region,
+    String flag,
+    RomsState state,
+    WidgetRef ref,
+  ) {
     final isSelected = state.selectedRegions.contains(region);
     return FilterChip(
       label: Text('$flag $region', style: const TextStyle(fontSize: 12)),
       selected: isSelected,
       onSelected: (_) => ref.read(romsProvider.notifier).toggleRegion(region),
-      selectedColor: AppTheme.primaryColor.withOpacity(0.3),
+      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.3),
       checkmarkColor: AppTheme.primaryColor,
       visualDensity: VisualDensity.compact,
     );
@@ -442,61 +533,6 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
           Text(
             'No games found',
             style: TextStyle(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(RomsState state, String category, String consoleKey) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        border: Border(top: BorderSide(color: Colors.grey.shade800)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          ElevatedButton.icon(
-            onPressed: state.selectedCount > 0
-                ? () async {
-                    final selectedRoms = ref
-                        .read(romsProvider.notifier)
-                        .getSelectedRoms();
-                    ref
-                        .read(downloadQueueProvider.notifier)
-                        .addToQueue(category, consoleKey, selectedRoms);
-                    ref.read(romsProvider.notifier).deselectAll();
-
-                    setState(() {
-                      _addToQueueMessage =
-                          'Added ${selectedRoms.length} games!';
-                    });
-
-                    _queueTimer?.cancel();
-                    _queueTimer = Timer(const Duration(seconds: 2), () {
-                      if (mounted) {
-                        setState(() {
-                          _addToQueueMessage = null;
-                        });
-                      }
-                    });
-                  }
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _addToQueueMessage != null
-                  ? AppTheme.accentColor
-                  : null,
-            ),
-            icon: Icon(
-              _addToQueueMessage != null
-                  ? Icons.check
-                  : Icons.add_shopping_cart,
-            ),
-            label: Text(
-              _addToQueueMessage ?? 'Add to Queue (${state.selectedCount})',
-            ),
           ),
         ],
       ),
