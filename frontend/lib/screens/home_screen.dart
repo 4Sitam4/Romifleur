@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../widgets/console_sidebar.dart';
@@ -33,13 +34,127 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (kIsWeb) return;
 
     final config = ref.read(configServiceProvider);
+    await config.init(); // Ensure config is ready
     final path = await config.getDownloadPath();
 
     if (path == null) {
       if (mounted) {
-        _showSetupDialog();
+        await _showSetupDialog();
+        if (mounted) {
+          await _showRaSetupDialog();
+        }
       }
     }
+  }
+
+  Future<void> _showRaSetupDialog() async {
+    final keyController = TextEditingController();
+    bool? isValid;
+    bool isChecking = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              backgroundColor: AppTheme.cardColor,
+              title: const Text('🏆 RetroAchievements'),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.emoji_events,
+                      size: 48,
+                      color: AppTheme.accentColor,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Enhance your experience by connecting your RetroAchievements account to filter games with achievements.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    InkWell(
+                      onTap: () => launchUrl(
+                        Uri.parse('https://retroachievements.org/settings'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text(
+                        'Get your API Key here (Settings Page)',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: keyController,
+                      decoration: InputDecoration(
+                        labelText: 'Web API Key',
+                        // hintText: 'Found in your RA Control Panel', // Removed redundant hint
+                        border: const OutlineInputBorder(),
+                        suffixIcon: isChecking
+                            ? const Padding(
+                                padding: EdgeInsets.all(12.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : isValid == null
+                            ? null
+                            : Icon(
+                                isValid! ? Icons.check_circle : Icons.error,
+                                color: isValid! ? Colors.green : Colors.red,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'Skip',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isChecking
+                      ? null
+                      : () async {
+                          final key = keyController.text.trim();
+                          if (key.isEmpty) return;
+
+                          setState(() => isChecking = true);
+                          final ra = ref.read(raServiceProvider);
+                          final valid = await ra.validateKey(key);
+                          setState(() {
+                            isChecking = false;
+                            isValid = valid;
+                          });
+
+                          if (valid) {
+                            final config = ref.read(configServiceProvider);
+                            await config.setRaApiKey(key);
+                            if (context.mounted) Navigator.of(context).pop();
+                          }
+                        },
+                  child: const Text('Verify & Save'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _showSetupDialog() async {
@@ -63,6 +178,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const Text(
                 'To get started, please select a folder where your games will be downloaded.',
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      '📂 Folder Structure',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Games will be downloaded automatically into console subfolders:',
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Selected Folder/console_name/game.rom',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 13),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      '💡 Recommendation',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text('Create a "ROMs" folder and select it.'),
+                    SizedBox(height: 12),
+                    Text(
+                      'Example (N64):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    Text(
+                      '.../ROMs/n64/Mario64.n64',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

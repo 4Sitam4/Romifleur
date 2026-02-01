@@ -18,10 +18,14 @@ class ConfigService {
   factory ConfigService() => _instance;
   ConfigService._internal();
 
+  bool _isInitialized = false;
+
   /// Initialize the service
   Future<void> init() async {
+    if (_isInitialized) return;
     _prefs = await SharedPreferences.getInstance();
     await _loadConsoles();
+    _isInitialized = true;
   }
 
   /// Load consoles.json from assets
