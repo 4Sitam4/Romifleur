@@ -108,6 +108,7 @@ jobs:
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/lib
 
           # 3. Copy binaries and assets
           cp build/linux/x64/release/bundle/romifleur AppDir/usr/bin/

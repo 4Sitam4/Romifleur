@@ -22,16 +22,21 @@
 
 ### 🖥️ Desktop (Windows, macOS, Linux)
 1.  **Download** the latest release for your OS from the [Releases page](../../releases).
-2.  **Run** the executable (`Romifleur.exe`, `Romifleur.app`, etc.).
-3.  **First Run**:
+2.  **Extract**:
+    *   **Windows/MacOS**: Extract the zip. You will find a clean `Romifleur/` folder.
+    *   **Linux**: Download the `.AppImage` (recommended) or the `.tar.gz`.
+3.  **Run**:
+    *   **AppImage**: `chmod +x romifleur-linux-x86_64.AppImage` then `./romifleur...` (or double click).
+    *   **Exe/App**: Run `Romifleur.exe` inside the folder.
+4.  **First Run**:
     *   Select a destination folder for your ROMs (e.g., `Documents/ROMs`).
     *   (Optional) Enter your RetroAchievements Web API Key to enable achievement badges.
-4.  **Enjoy**: Browse games by console, add them to your queue, and start downloading!
+5.  **Enjoy**: Browse games by console, add them to your queue, and start downloading!
 
 ### 📱 Android
 1.  **Download** the `.apk` file from the [Releases page](../../releases).
-2.  **Install** it on your Android device (you may need to enable "Install from Unknown Sources").
-3.  **Setup**: Follow the on-screen prompts to grant storage permissions and select your download folder.
+2.  **Install** it on your Android device.
+3.  **Setup**: Grant storage permissions when prompted (includes 'Manage All Files' on Android 11+).
 
 ### 🐳 Docker (Web Version)
 Run Romifleur as a web service on your home server (NAS, VPS, Raspberry Pi).
@@ -40,7 +45,7 @@ Run Romifleur as a web service on your home server (NAS, VPS, Raspberry Pi).
 ```yaml
 services:
   romifleur:
-    image: ghcr.io/4sitam4/romifleur:3.0.4
+    image: ghcr.io/4sitam4/romifleur:latest
     container_name: romifleur-web
     ports:
       - "8080:8080"
