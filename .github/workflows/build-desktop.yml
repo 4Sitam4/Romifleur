@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main", "refactoV3"]
     paths:
-      - "frontend/**"
+      - "app/**"
       - ".github/workflows/build-desktop.yml"
   workflow_dispatch:
 
@@ -27,18 +27,18 @@ jobs:
         run: flutter config --enable-windows-desktop
 
       - name: Get Dependencies
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build Windows
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter build windows --release
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: romifleur-windows
-          path: frontend/build/windows/x64/runner/Release/
+          path: app/build/windows/x64/runner/Release/
 
   build-linux:
     runs-on: ubuntu-latest
@@ -60,18 +60,18 @@ jobs:
         run: flutter config --enable-linux-desktop
 
       - name: Get Dependencies
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build Linux
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter build linux --release
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: romifleur-linux
-          path: frontend/build/linux/x64/release/bundle/
+          path: app/build/linux/x64/release/bundle/
 
   build-macos:
     runs-on: macos-latest
@@ -88,15 +88,15 @@ jobs:
         run: flutter config --enable-macos-desktop
 
       - name: Get Dependencies
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build MacOS
-        working-directory: ./frontend
+        working-directory: ./app
         run: flutter build macos --release
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: romifleur-macos
-          path: frontend/build/macos/Build/Products/Release/romifleur.app
+          path: app/build/macos/Build/Products/Release/romifleur.app

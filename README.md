@@ -1,6 +1,6 @@
 # Romifleur
 
-![Romifleur Logo](frontend/assets/logo-romifleur.png)
+![Romifleur Logo](app/assets/logo-romifleur.png)
 
 **Romifleur** is a modern, cross-platform application designed to simplify the process of browsing, organizing, and downloading retro game ROMs. Now rewritten in **Flutter**, it offers a unified experience across **Windows, macOS, Linux, Android, and the Web (Docker)**.
 
@@ -63,7 +63,7 @@ services:
 **Clone & Setup:**
 ```bash
 git clone https://github.com/Sitam/Renifleur.git
-cd Renifleur/frontend
+cd Renifleur/app
 flutter pub get
 ```
 
