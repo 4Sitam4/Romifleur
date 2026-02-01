@@ -40,7 +40,7 @@ Run Romifleur as a web service on your home server (NAS, VPS, Raspberry Pi).
 ```yaml
 services:
   romifleur:
-    image: ghcr.io/sitam/renifleur:latest
+    image: ghcr.io/sitam/romifleur:latest
     container_name: romifleur-web
     ports:
       - "8080:8080"
@@ -52,6 +52,11 @@ services:
 1.  Run `docker-compose up -d`.
 2.  Open `http://localhost:8080`.
 3.  **Note**: In this mode, downloads are saved **directly to the container/server volume** (`/app/data`), bypassing browser limitations.
+
+**Or using pure Docker CLI:**
+```bash
+docker run -p 8080:8080 -v "/path/to/your/roms:/app/data" ghcr.io/4sitam4/romifleur:latest
+```
 
 ---
 
