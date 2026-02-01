@@ -45,7 +45,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data  # Where ROMs will be downloaded
+      - ./path/to/your/roms:/app/data  # Where ROMs will be downloaded
     restart: unless-stopped
 ```
 
