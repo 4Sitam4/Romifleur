@@ -112,7 +112,7 @@ jobs:
           # 3. Copy binaries and assets
           cp build/linux/x64/release/bundle/romifleur AppDir/usr/bin/
           cp -r build/linux/x64/release/bundle/data AppDir/usr/bin/
-          cp -r build/linux/x64/release/bundle/lib AppDir/usr/lib
+          cp -r build/linux/x64/release/bundle/lib/* AppDir/usr/lib/
           
           # 4. Create Desktop File
           cat > AppDir/usr/share/applications/romifleur.desktop <<EOF
@@ -136,7 +136,7 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
 
           # 7. Build AppImage
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/romifleur.desktop --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+          LD_LIBRARY_PATH=$PWD/AppDir/usr/lib ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/romifleur.desktop --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
 
       - name: Rename AppImage
         run: mv app/*.AppImage romifleur-linux-x86_64.AppImage
