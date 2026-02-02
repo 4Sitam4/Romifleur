@@ -130,8 +130,8 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
 
           # 7. Build AppImage (Exclude GL/Wayland libs to use system drivers)
-          # We point LD_LIBRARY_PATH to usr/bin/lib because that's where we copied the flutter libs
-          LD_LIBRARY_PATH=$PWD/AppDir/usr/bin/lib ./linuxdeploy-x86_64.AppImage \
+          # We point LD_LIBRARY_PATH to usr/bin/lib so it finds libapp.so, but we append existing paths for system libs
+          LD_LIBRARY_PATH=$PWD/AppDir/usr/bin/lib:$LD_LIBRARY_PATH ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --output appimage \
             --desktop-file AppDir/usr/share/applications/romifleur.desktop \
