@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-02-02
+### Fixed
+- **Docker**: Fixed issue where downloaded zip archives were not deleted after extraction in the Web version.
+- **Linux**: Fixed AppImage generation issues (icon resolution, dependency copying, and internal renaming).
+
 ## [3.1.0] - 2026-02-01
 ### Added
 - **UI**: Added Total Download Size calculator in the "Start Downloads" button (e.g., "3.7 GB - Start Downloads").

@@ -119,8 +119,12 @@ Future<Response> _downloadHandler(Request request) async {
           }
         }
         print('✅ Extraction Complete');
-        // Optional: Delete zip?
-        // await file.delete();
+        try {
+          await file.delete();
+          print('🗑️ Archive deleted: ${file.path}');
+        } catch (delError) {
+          print('⚠️ Failed to delete archive: $delError');
+        }
       } catch (e) {
         print('❌ Extraction Failed: $e');
         // Don't fail the request, just log it. A corrupt zip is still a download.
