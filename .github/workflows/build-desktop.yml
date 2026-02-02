@@ -130,8 +130,12 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage
 
           # 7. Build AppImage (Exclude GL/Wayland libs to use system drivers)
-          # We point LD_LIBRARY_PATH to usr/bin/lib so it finds libapp.so, and explicitly include host GL path
-          LD_LIBRARY_PATH=$PWD/AppDir/usr/bin/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH ./linuxdeploy-x86_64.AppImage \
+          # Dynamically find libGL path to ensure linuxdeploy sees it
+          LIBGL_PATH=$(find /usr/lib -name libGL.so.1 -print -quit)
+          LIBGL_DIR=$(dirname "$LIBGL_PATH")
+          echo "Found libGL.so.1 at $LIBGL_DIR"
+
+          LD_LIBRARY_PATH="$PWD/AppDir/usr/bin/lib:$LIBGL_DIR:$LD_LIBRARY_PATH" ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --output appimage \
             --desktop-file AppDir/usr/share/applications/romifleur.desktop \
