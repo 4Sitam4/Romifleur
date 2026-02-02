@@ -55,8 +55,10 @@ class RomsState {
   final String? error;
   final String searchQuery;
   final Set<String> selectedRegions;
+  final Set<String> selectedLanguages;
   final bool hideDemos;
   final bool hideBetas;
+  final bool hideUnlicensed;
   final bool onlyRa;
 
   const RomsState({
@@ -64,9 +66,11 @@ class RomsState {
     this.isLoading = false,
     this.error,
     this.searchQuery = '',
-    this.selectedRegions = const {'Europe', 'USA', 'Japan'},
+    this.selectedRegions = const {'Europe', 'USA', 'Japan', 'World'},
+    this.selectedLanguages = const {},
     this.hideDemos = true,
     this.hideBetas = true,
+    this.hideUnlicensed = true,
     this.onlyRa = false,
   });
 
@@ -76,8 +80,10 @@ class RomsState {
     String? error,
     String? searchQuery,
     Set<String>? selectedRegions,
+    Set<String>? selectedLanguages,
     bool? hideDemos,
     bool? hideBetas,
+    bool? hideUnlicensed,
     bool? onlyRa,
   }) {
     return RomsState(
@@ -86,8 +92,10 @@ class RomsState {
       error: error,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedRegions: selectedRegions ?? this.selectedRegions,
+      selectedLanguages: selectedLanguages ?? this.selectedLanguages,
       hideDemos: hideDemos ?? this.hideDemos,
       hideBetas: hideBetas ?? this.hideBetas,
+      hideUnlicensed: hideUnlicensed ?? this.hideUnlicensed,
       onlyRa: onlyRa ?? this.onlyRa,
     );
   }
@@ -115,15 +123,16 @@ class RomsNotifier extends StateNotifier<RomsState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // 1. Fetch filtered list
+      // 1. Fetch filtered list (no deduplication - show all versions)
       var roms = await romService.search(
         _currentCategory!,
         _currentConsoleKey!,
         state.searchQuery,
         regions: state.selectedRegions.toList(),
+        languages: state.selectedLanguages.toList(),
         hideDemos: state.hideDemos,
         hideBetas: state.hideBetas,
-        deduplicate: true, // Always deduplicate for now
+        hideUnlicensed: state.hideUnlicensed,
       );
 
       // 2. Filter RA if checked
@@ -181,6 +190,22 @@ class RomsNotifier extends StateNotifier<RomsState> {
 
   void toggleHideBetas() {
     state = state.copyWith(hideBetas: !state.hideBetas);
+    _refresh();
+  }
+
+  void toggleHideUnlicensed() {
+    state = state.copyWith(hideUnlicensed: !state.hideUnlicensed);
+    _refresh();
+  }
+
+  void toggleLanguage(String language) {
+    final languages = Set<String>.from(state.selectedLanguages);
+    if (languages.contains(language)) {
+      languages.remove(language);
+    } else {
+      languages.add(language);
+    }
+    state = state.copyWith(selectedLanguages: languages);
     _refresh();
   }
 

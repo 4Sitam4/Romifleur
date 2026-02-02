@@ -12,17 +12,6 @@ import 'package:romifleur/models/rom.dart';
 class RomService {
   final ConfigService _configService = ConfigService();
   final Map<String, List<RomModel>> _cache = {};
-  List<String> _regions = ["Europe", "France", "Fr", "USA", "Japan"];
-
-  void updateFilters({
-    List<String>? regions,
-    List<String>? exclude,
-    bool? deduplicate,
-  }) {
-    if (regions != null) _regions = regions;
-    // if (exclude != null) _exclude = exclude; // Removed unused
-    // if (deduplicate != null) _defaultDeduplicate = deduplicate; // Removed unused
-  }
 
   Future<List<RomModel>> fetchFileList(
     String category,
@@ -123,88 +112,72 @@ class RomService {
     String consoleKey,
     String query, {
     List<String>? regions,
+    List<String>? languages,
     bool hideDemos = true,
     bool hideBetas = true,
-    bool deduplicate = true,
+    bool hideUnlicensed = true,
   }) async {
     var roms = await fetchFileList(category, consoleKey);
-    final activeRegions = regions ?? _regions;
+    final activeRegions = regions ?? [];
+    final activeLanguages = languages ?? [];
     final queryLower = query.toLowerCase();
     List<RomModel> filtered = [];
 
     for (var rom in roms) {
-      if (query.isNotEmpty &&
-          !rom.filename.toLowerCase().contains(queryLower)) {
+      final filename = rom.filename;
+
+      // 1. Search query filter
+      if (query.isNotEmpty && !filename.toLowerCase().contains(queryLower)) {
         continue;
       }
 
+      // 2. Region filter (if any regions are selected)
+      // Matches: (USA), (Europe), (Japan), (World), etc.
       if (activeRegions.isNotEmpty) {
-        bool regionMatch = false;
-        for (var r in activeRegions) {
-          if (rom.filename.contains('($r)') ||
-              (r == 'Fr' && rom.filename.contains('(Fr)'))) {
-            regionMatch = true;
-            break;
-          }
-        }
-        if (!regionMatch && rom.filename.contains('(World)'))
-          regionMatch = true;
-
+        bool regionMatch = activeRegions.any((r) => filename.contains('($r)'));
         if (!regionMatch) continue;
       }
 
+      // 3. Language filter (if any languages are selected)
+      // Matches: (En), (Fr), (En,Fr,De), (Fr,De,Es,It), etc.
+      if (activeLanguages.isNotEmpty) {
+        bool languageMatch = false;
+        for (var lang in activeLanguages) {
+          // Match standalone: (Fr) or at start: (Fr, or in middle: ,Fr, or at end: ,Fr)
+          if (filename.contains('($lang)') ||
+              filename.contains('($lang,') ||
+              filename.contains(',$lang,') ||
+              filename.contains(',$lang)')) {
+            languageMatch = true;
+            break;
+          }
+        }
+        if (!languageMatch) continue;
+      }
+
+      // 4. Hide Demos/Samples
       if (hideDemos &&
-          (rom.filename.contains('Demo') || rom.filename.contains('Sample')))
+          (filename.contains('(Demo') || filename.contains('(Sample'))) {
         continue;
+      }
+
+      // 5. Hide Betas/Protos
       if (hideBetas &&
-          (rom.filename.contains('Beta') || rom.filename.contains('Proto')))
+          (filename.contains('(Beta') || filename.contains('(Proto'))) {
         continue;
+      }
+
+      // 6. Hide Unlicensed
+      if (hideUnlicensed && filename.contains('(Unl)')) {
+        continue;
+      }
 
       filtered.add(rom);
     }
 
-    if (deduplicate) {
-      filtered = _performDeduplication(filtered);
-    }
+    // Sort alphabetically
+    filtered.sort((a, b) => a.filename.compareTo(b.filename));
     return filtered;
-  }
-
-  List<RomModel> _performDeduplication(List<RomModel> list) {
-    Map<String, RomModel> bestCandidates = {};
-    Map<String, int> bestScores = {};
-
-    for (var rom in list) {
-      final base = _getBaseTitle(rom.filename);
-      final score = _getScore(rom.filename);
-
-      if (!bestCandidates.containsKey(base) || score > bestScores[base]!) {
-        bestCandidates[base] = rom;
-        bestScores[base] = score;
-      }
-    }
-
-    final sorted = bestCandidates.values.toList();
-    sorted.sort((a, b) => a.filename.compareTo(b.filename));
-    return sorted;
-  }
-
-  String _getBaseTitle(String filename) {
-    var name = filename;
-    final dotIndex = name.lastIndexOf('.');
-    if (dotIndex != -1) name = name.substring(0, dotIndex);
-    name = name.replaceAll(RegExp(r'\s*\([^)]+\)'), '');
-    name = name.replaceAll(RegExp(r'\s*\[[^\]]+\]'), '');
-    return name.trim();
-  }
-
-  int _getScore(String filename) {
-    int score = 0;
-    if (filename.contains('(France)') || filename.contains('(Fr)'))
-      score += 2;
-    else if (filename.contains('(Europe)'))
-      score += 1;
-    if (filename.contains('Virtual Console')) score -= 50;
-    return score;
   }
 
   Stream<double> downloadFile(

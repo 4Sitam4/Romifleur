@@ -173,14 +173,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Badge(
-                label: Text(
-                  '${(state.onlyRa ? 1 : 0) + (state.hideDemos ? 1 : 0) + (state.hideBetas ? 1 : 0)}',
-                ),
-                isLabelVisible:
-                    (state.onlyRa || state.hideDemos || state.hideBetas),
-                child: const Icon(Icons.tune),
-              ),
+              icon: const Icon(Icons.tune),
               tooltip: 'Filters',
               onPressed: () => _showFilterSheet(state),
             ),
@@ -294,6 +287,13 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                           onSelected: (_) =>
                               ref.read(romsProvider.notifier).toggleHideBetas(),
                         ),
+                        FilterChip(
+                          label: const Text('Hide Unlicensed'),
+                          selected: currentState.hideUnlicensed,
+                          onSelected: (_) => ref
+                              .read(romsProvider.notifier)
+                              .toggleHideUnlicensed(),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -312,6 +312,28 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                         _buildRegionChip('Europe', '🇪🇺', currentState, ref),
                         _buildRegionChip('USA', '🇺🇸', currentState, ref),
                         _buildRegionChip('Japan', '🇯🇵', currentState, ref),
+                        _buildRegionChip('World', '🌍', currentState, ref),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Languages",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildLanguageChip('En', '🇬🇧', currentState, ref),
+                        _buildLanguageChip('Fr', '🇫🇷', currentState, ref),
+                        _buildLanguageChip('De', '🇩🇪', currentState, ref),
+                        _buildLanguageChip('Es', '🇪🇸', currentState, ref),
+                        _buildLanguageChip('It', '🇮🇹', currentState, ref),
+                        _buildLanguageChip('Ja', '🇯🇵', currentState, ref),
                       ],
                     ),
                   ],
@@ -463,6 +485,12 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                 onSelected: (_) =>
                     ref.read(romsProvider.notifier).toggleHideBetas(),
               ),
+              FilterChip(
+                label: const Text('Hide Unlicensed'),
+                selected: state.hideUnlicensed,
+                onSelected: (_) =>
+                    ref.read(romsProvider.notifier).toggleHideUnlicensed(),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -480,6 +508,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
               _buildRegionChip('Europe', '🇪🇺', state, ref),
               _buildRegionChip('USA', '🇺🇸', state, ref),
               _buildRegionChip('Japan', '🇯🇵', state, ref),
+              _buildRegionChip('World', '🌍', state, ref),
               // Select/Deselect All buttons
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -496,6 +525,26 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                   ),
                 ],
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Language filters (Wrap)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'Languages:',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              _buildLanguageChip('En', '🇬🇧', state, ref),
+              _buildLanguageChip('Fr', '🇫🇷', state, ref),
+              _buildLanguageChip('De', '🇩🇪', state, ref),
+              _buildLanguageChip('Es', '🇪🇸', state, ref),
+              _buildLanguageChip('It', '🇮🇹', state, ref),
+              _buildLanguageChip('Ja', '🇯🇵', state, ref),
             ],
           ),
         ],
@@ -516,6 +565,24 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
       onSelected: (_) => ref.read(romsProvider.notifier).toggleRegion(region),
       selectedColor: AppTheme.primaryColor.withValues(alpha: 0.3),
       checkmarkColor: AppTheme.primaryColor,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildLanguageChip(
+    String language,
+    String flag,
+    RomsState state,
+    WidgetRef ref,
+  ) {
+    final isSelected = state.selectedLanguages.contains(language);
+    return FilterChip(
+      label: Text('$flag $language', style: const TextStyle(fontSize: 12)),
+      selected: isSelected,
+      onSelected: (_) =>
+          ref.read(romsProvider.notifier).toggleLanguage(language),
+      selectedColor: AppTheme.accentColor.withValues(alpha: 0.3),
+      checkmarkColor: AppTheme.accentColor,
       visualDensity: VisualDensity.compact,
     );
   }

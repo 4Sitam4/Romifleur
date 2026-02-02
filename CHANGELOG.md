@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.4] - 2026-02-03
+### Added
+- **Language Filters**: Filter ROMs by language (En, Fr, De, Es, It, Ja). Combine with region filters!
+- **World Region**: Added "World" region filter for `(World)` releases.
+- **Hide Unlicensed**: New filter to hide `(Unl)` unlicensed/pirate ROMs.
+
+### Changed
+- **Show All Versions**: Removed auto-deduplication that hid USA/Japan versions. All matching versions now displayed.
+
+### Fixed
+- **USA Games Missing** (#37): Fixed bug where USA versions were hidden due to region scoring bias.
+
 ## [3.1.3] - 2026-02-02
 ### Fixed
 - **Linux AppImage**: Fixed critical issues preventing launch on Arch Linux/Wayland (KDE Plasma, GNOME 40+).
