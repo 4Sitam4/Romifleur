@@ -104,10 +104,9 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           mkdir -p AppDir/usr/lib
 
-          # 3. Copy binaries and assets
-          cp build/linux/x64/release/bundle/romifleur AppDir/usr/bin/
-          cp -r build/linux/x64/release/bundle/data AppDir/usr/bin/
-          cp -r build/linux/x64/release/bundle/lib/* AppDir/usr/lib/
+          # 3. Copy binaries and assets (Preserve 'bundle' structure)
+          # We copy everything to usr/bin so 'romifleur' finds 'lib/' relative to itself ($ORIGIN/lib)
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           
           # 4. Create Desktop File
           cat > AppDir/usr/share/applications/romifleur.desktop <<EOF
@@ -130,8 +129,14 @@ jobs:
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20240109-1/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # 7. Build AppImage
-          LD_LIBRARY_PATH=$PWD/AppDir/usr/lib ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage --desktop-file AppDir/usr/share/applications/romifleur.desktop --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+          # 7. Build AppImage (Exclude GL/Wayland libs to use system drivers)
+          # We point LD_LIBRARY_PATH to usr/bin/lib because that's where we copied the flutter libs
+          LD_LIBRARY_PATH=$PWD/AppDir/usr/bin/lib ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --output appimage \
+            --desktop-file AppDir/usr/share/applications/romifleur.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png \
+            -e libGL.so.1 -e libEGL.so.1 -e libwayland-client.so.0 -e libwayland-server.so.0 -e libwayland-egl.so.1 -e libdrm.so.2
 
       - name: Rename AppImage
         run: mv app/Romifleur*.AppImage romifleur-linux-x86_64.AppImage

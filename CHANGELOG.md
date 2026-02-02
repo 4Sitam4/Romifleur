@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.3] - 2026-02-02
+### Fixed
+- **Linux AppImage**: Fixed "No GL implementation" and "Invalid ELF path" errors on Arch Linux/Wayland.
+  - Excluded conflicting system libraries (libGL, libWayland, libdrm) from bundling.
+  - Corrected internal bundle structure for AOT binary resolution.
+
 ## [3.1.2] - 2026-02-02
 ### Added
 - **Docker**: Added multi-platform support (AMD64 & ARM64). Now runs on Raspberry Pi and other ARM devices! 🥧
