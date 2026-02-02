@@ -4,9 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [3.1.3] - 2026-02-02
 ### Fixed
-- **Linux AppImage**: Fixed "No GL implementation" and "Invalid ELF path" errors on Arch Linux/Wayland.
-  - Excluded conflicting system libraries (libGL, libWayland, libdrm) from bundling.
-  - Corrected internal bundle structure for AOT binary resolution.
+- **Linux AppImage**: Fixed critical issues preventing launch on Arch Linux/Wayland (KDE Plasma, GNOME 40+).
+  - **"No GL implementation"**: Excluded system-specific graphics libraries (`libGL`, `libGLX`, `libEGL`, `libwayland-*`, `libdrm`, `libgbm`) to use host drivers.
+  - **"Invalid ELF path" (AOT)**: Implemented wrapper script to set `LD_LIBRARY_PATH` and working directory, ensuring `libapp.so` is found at runtime.
+  - Restructured AppDir to preserve Flutter bundle integrity (`/usr/share/romifleur/`).
 
 ## [3.1.2] - 2026-02-02
 ### Added

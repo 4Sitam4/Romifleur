@@ -97,19 +97,39 @@ jobs:
           # 1. Install dependencies
           sudo apt-get install -y libfuse2 file imagemagick
 
-          # 2. Prepare AppDir
-          mkdir -p AppDir
-          mkdir -p AppDir/usr/bin
+          # 2. Prepare AppDir structure
+          # Flutter apps need the bundle structure preserved with lib/ next to the executable
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/lib
-
-          # 3. Copy binaries and assets (Preserve 'bundle' structure)
-          # We copy everything to usr/bin so 'romifleur' finds 'lib/' relative to itself ($ORIGIN/lib)
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          mkdir -p AppDir/usr/share/romifleur
           
-          # 4. Create Desktop File
-          cat > AppDir/usr/share/applications/romifleur.desktop <<EOF
+          # 3. Copy the entire bundle to a dedicated location
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/share/romifleur/
+          
+          # 4. Create a wrapper script that sets up the environment correctly
+          mkdir -p AppDir/usr/bin
+          cat > AppDir/usr/bin/romifleur <<'WRAPPER'
+          #!/bin/bash
+          # Get the directory where this script is located
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          
+          # Flutter bundle is in ../share/romifleur
+          BUNDLE_DIR="${HERE}/../share/romifleur"
+          
+          # Set library path to find Flutter libs (libapp.so, libflutter_linux_gtk.so, etc.)
+          export LD_LIBRARY_PATH="${BUNDLE_DIR}/lib:${LD_LIBRARY_PATH}"
+          
+          # Change to bundle directory so Flutter can find its assets
+          cd "${BUNDLE_DIR}"
+          
+          # Execute the real Flutter binary
+          exec "${BUNDLE_DIR}/romifleur" "$@"
+          WRAPPER
+          chmod +x AppDir/usr/bin/romifleur
+          
+          # 5. Create Desktop File (no leading spaces!)
+          cat > AppDir/usr/share/applications/romifleur.desktop <<'EOF'
           [Desktop Entry]
           Name=Romifleur
           Exec=romifleur
@@ -117,27 +137,32 @@ jobs:
           Type=Application
           Categories=Utility;Game;
           EOF
+          # Remove leading spaces from desktop file (heredoc artifact)
+          sed -i 's/^          //' AppDir/usr/share/applications/romifleur.desktop
 
-          # 5. Create Icon (Resize to 256x256)
+          # 6. Create Icon (Resize to 256x256)
           if [ -f assets/logo-romifleur.png ]; then
             convert assets/logo-romifleur.png -resize 256x256 AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
           else
-             cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
+            cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png
           fi
 
-          # 6. Download linuxdeploy
+          # 7. Download linuxdeploy
           wget https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20240109-1/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
 
-          # 7. Build AppImage (Exclude GL/Wayland libs to use system drivers)
-          # 7. Build AppImage (Exclude GL/Wayland libs to use system drivers)
-          # We point LD_LIBRARY_PATH to usr/bin/lib so it finds libapp.so, and append system path
-          LD_LIBRARY_PATH=$PWD/AppDir/usr/bin/lib:$LD_LIBRARY_PATH ./linuxdeploy-x86_64.AppImage \
+          # 8. Build AppImage
+          # Exclude GL/Wayland/DRM libs so the AppImage uses system graphics drivers
+          # This is critical for Wayland compatibility (KDE Plasma, GNOME 40+, etc.)
+          export LINUXDEPLOY_OUTPUT_VERSION=""
+          export EXCLUDE_LIBRARIES="libGL.so.1;libGLX.so.0;libGLdispatch.so.0;libEGL.so.1;libwayland-client.so.0;libwayland-server.so.0;libwayland-egl.so.1;libwayland-cursor.so.0;libdrm.so.2;libgbm.so.1"
+          
+          # Run linuxdeploy - point LD_LIBRARY_PATH to find Flutter libs during bundling
+          LD_LIBRARY_PATH=$PWD/AppDir/usr/share/romifleur/lib:$LD_LIBRARY_PATH ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
-            --output appimage \
             --desktop-file AppDir/usr/share/applications/romifleur.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/romifleur.png \
-            -e libGL.so.1 -e libEGL.so.1 -e libwayland-client.so.0 -e libwayland-server.so.0 -e libwayland-egl.so.1 -e libdrm.so.2
+            --output appimage
 
       - name: Rename AppImage
         run: mv app/Romifleur*.AppImage romifleur-linux-x86_64.AppImage
