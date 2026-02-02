@@ -1,5 +1,5 @@
 # Stage 1: Build Flutter Web
-FROM ubuntu:latest AS web-builder
+FROM --platform=$BUILDPLATFORM ubuntu:latest AS web-builder
 
 RUN apt-get update && apt-get install -y curl git unzip
 

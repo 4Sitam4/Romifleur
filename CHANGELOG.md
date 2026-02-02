@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-02-02
+### Added
+- **Docker**: Added multi-platform support (AMD64 & ARM64). Now runs on Raspberry Pi and other ARM devices! 🥧
+
 ## [3.1.1] - 2026-02-02
 ### Fixed
 - **Docker**: Fixed issue where downloaded zip archives were not deleted after extraction in the Web version.

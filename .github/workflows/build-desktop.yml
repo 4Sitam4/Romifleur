@@ -91,14 +91,6 @@ jobs:
           cd ../Linux_Release
           tar -czvf ../../../../../romifleur-linux.tar.gz Romifleur
 
-      - name: Release Linux
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: romifleur-linux.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create AppImage
         working-directory: ./app
         run: |
@@ -150,11 +142,13 @@ jobs:
           name: romifleur-linux-appimage
           path: romifleur-linux-x86_64.AppImage
 
-      - name: Release Linux AppImage
+      - name: Release Linux (AppImage & Tarball)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: romifleur-linux-x86_64.AppImage
+          files: |
+            romifleur-linux-x86_64.AppImage
+            app/romifleur-linux.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
