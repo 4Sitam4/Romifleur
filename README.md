@@ -6,6 +6,8 @@
 
 **Romifleur** is a modern, cross-platform application designed to simplify the process of browsing, organizing, and downloading retro game ROMs. Now rewritten in **Flutter**, it offers a unified experience across **Windows, macOS, Linux, Android, and the Web (Docker)**.
 
+> 📝 **See what's new in the [Changelog](CHANGELOG.md)!**
+
 ## 🚀 Features
 
 *   **Multi-Platform**: Runs natively on all major desktop OSs and Android devices.
