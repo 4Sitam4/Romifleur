@@ -12,6 +12,9 @@ class AppTheme {
   static const Color backgroundColor = Color(0xFF1A1A2E); // Dark navy
   static const Color surfaceColor = Color(0xFF16213E); // Slightly lighter
   static const Color cardColor = Color(0xFF1F2937); // Card background
+  static const Color cardColorLight = Color(
+    0xFF2D3748,
+  ); // Lighter card background
   static const Color sidebarColor = Color(0xFF0F172A); // Darker sidebar
 
   static const Color textPrimary = Color(0xFFE5E5E5);

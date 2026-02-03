@@ -663,6 +663,7 @@ class _GameDetailsDialog extends ConsumerStatefulWidget {
 class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
   Map<String, dynamic>? _metadata;
   bool _isLoading = true;
+  StreamSubscription? _subscription;
 
   @override
   void initState() {
@@ -670,24 +671,35 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
     _loadMetadata();
   }
 
-  Future<void> _loadMetadata() async {
-    try {
-      final metadata = ref.read(metadataServiceProvider);
-      final data = await metadata.getMetadata(
-        widget.consoleKey,
-        widget.rom.filename,
-      );
-      if (mounted) {
-        setState(() {
-          _metadata = data;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  void _loadMetadata() {
+    final metadataService = ref.read(metadataServiceProvider);
+
+    _subscription = metadataService
+        .getMetadataStream(widget.consoleKey, widget.rom.filename)
+        .listen(
+          (data) {
+            if (mounted) {
+              setState(() {
+                _metadata = data.toJson();
+                _isLoading = false;
+              });
+            }
+          },
+          onError: (e) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                // Keep existing metadata if any, or show error state if null
+              });
+            }
+          },
+        );
   }
 
   @override
@@ -803,6 +815,7 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Description
         if (_metadata!['description'] != null) ...[
           const Text(
             "SYNOPSIS",
@@ -821,13 +834,35 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
           const SizedBox(height: 24),
         ],
 
-        _buildInfoRow("Developer", _metadata!['developer']),
-        _buildInfoRow("Publisher", _metadata!['publisher']),
-        _buildInfoRow("Genre", _metadata!['genre']),
-        _buildInfoRow("Release Date", _metadata!['release_date']),
-        _buildInfoRow("Rating", _metadata!['rating']),
+        // Info Grid
+        Wrap(
+          spacing: 24,
+          runSpacing: 16,
+          children: [
+            if (_metadata!['developer'] != null)
+              _buildInfoItem("DEVELOPER", _metadata!['developer']),
+            if (_metadata!['publisher'] != null)
+              _buildInfoItem("PUBLISHER", _metadata!['publisher']),
+            if (_metadata!['genre'] != null)
+              _buildInfoItem("GENRE", _metadata!['genre']),
+            if (_metadata!['date'] != null)
+              _buildInfoItem("RELEASE DATE", _metadata!['date']),
+            if (_metadata!['rating'] != null)
+              _buildInfoItem("RATING", _metadata!['rating']),
+            if (_metadata!['players'] != null)
+              _buildInfoItem("PLAYERS", _metadata!['players']),
+          ],
+        ),
 
         const SizedBox(height: 24),
+        // Source info for debugging
+        if (_metadata!['provider'] != null)
+          Text(
+            "Source: ${_metadata!['provider']}",
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
+
+        const SizedBox(height: 16),
         if (widget.rom.hasAchievements)
           Container(
             padding: const EdgeInsets.all(12),
@@ -858,29 +893,34 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
     );
   }
 
-  Widget _buildInfoRow(String label, dynamic value) {
-    if (value == null || value.toString().isEmpty)
-      return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+  Widget _buildInfoItem(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColorLight,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
           ),
-          Expanded(
-            child: Text(
-              value.toString(),
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

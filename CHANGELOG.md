@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-02-03
+### Added
+- **Multi-Source Metadata**: Added system to query multiple APIs (TheGamesDB + IGDB) in parallel.
+- **Progressive Enrichment**: Data loads instantly from the fastest source and automatically fills in missing details as others respond.
+- **Extended Game Details**:
+  - 🏠 Developer & Publisher
+  - 🎭 Genre
+  - ⭐ Rating
+  - 📅 Release Year
+  - 🎮 Player Count (when available)
+- **Visual Improvements**: New grid layout for game details and styled metadata badges.
+
 ## [3.2.0] - 2026-02-03
 ### Added
 - **Language Filters**: Filter ROMs by language (En, Fr, De, Es, It, Ja). Combine with region filters!
