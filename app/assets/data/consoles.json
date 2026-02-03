@@ -28,6 +28,20 @@
             "exts": [".zip", ".7z", ".rvz"],
             "best_games": ["Metroid Prime", "Super Smash Bros. Melee", "Wind Waker", "Resident Evil 4", "Twilight Princess"]
         },
+        "Wii": {
+            "name": "Nintendo Wii",
+            "folder": "wii",
+            "url": "https://myrient.erista.me/files/Redump/Nintendo%20-%20Wii%20-%20NKit%20RVZ%20%5Bzstd-19-128k%5D/",
+            "exts": [".zip", ".7z", ".rvz"],
+            "best_games": ["Super Mario Galaxy", "Super Mario Galaxy 2", "Xenoblade Chronicles", "Skyward Sword", "Super Smash Bros. Brawl", "Mario Kart Wii", "Metroid Prime Trilogy", "Donkey Kong Country Returns", "New Super Mario Bros. Wii", "Wii Sports"]
+        },
+        "WiiU": {
+            "name": "Nintendo Wii U",
+            "folder": "wiiu",
+            "url": "https://myrient.erista.me/files/Redump/Nintendo%20-%20Wii%20U%20-%20WUX/",
+            "exts": [".zip", ".7z", ".wux"],
+            "best_games": ["Breath of the Wild", "Super Mario 3D World", "Mario Kart 8", "Super Smash Bros. for Wii U", "Splatoon", "Bayonetta 2", "Xenoblade Chronicles X", "Pikmin 3", "Donkey Kong Country: Tropical Freeze", "Tokyo Mirage Sessions"]
+        },
         "GB": {
             "name": "Game Boy",
             "folder": "gb",
@@ -59,9 +73,16 @@
         "3DS": {
             "name": "Nintendo 3DS",
             "folder": "3ds",
-            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%203DS%20%28Decrypted%29//",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%203DS%20(Decrypted)/",
             "exts": [".zip", ".7z", ".3ds", ".cia"],
-            "best_games": ["Pokemon Y", "Legend of Zelda, The - Ocarina of Time 3D", "Fire Emblem - Awakening", "Legend of Zelda, The - A Link Between Worlds", "Shovel Knight", "Super Mario 3D Land", "Legend of Zelda, The - Majora's Mask 3D"]
+            "best_games": ["Pokemon Y", "Ocarina of Time 3D", "Fire Emblem Awakening", "A Link Between Worlds", "Super Mario 3D Land", "Majora's Mask 3D"]
+        },
+        "VirtualBoy": {
+            "name": "Virtual Boy",
+            "folder": "virtualboy",
+            "url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Virtual%20Boy/",
+            "exts": [".zip", ".7z", ".vb"],
+            "best_games": ["Virtual Boy Wario Land", "Mario's Tennis", "Teleroboxer", "Red Alarm", "Galactic Pinball"]
         }
     },
     "Sega": {
@@ -79,23 +100,33 @@
             "exts": [".zip", ".7z", ".md", ".bin"],
             "best_games": ["Sonic 2", "Streets of Rage 2", "Gunstar Heroes", "Phantasy Star IV", "Shinobi III"]
         },
+        "Sega32X": {
+            "name": "Sega 32X",
+            "folder": "sega32x",
+            "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%2032X/",
+            "exts": [".zip", ".7z", ".32x"],
+            "best_games": ["Knuckles' Chaotix", "Star Wars Arcade", "Virtua Fighter", "Doom", "Kolibri"]
+        },
+        "SegaCD": {
+            "name": "Sega CD / Mega-CD",
+            "folder": "segacd",
+            "url": "https://myrient.erista.me/files/Redump/Sega%20-%20Mega%20CD%20&%20Sega%20CD/",
+            "exts": [".zip", ".7z", ".chd", ".bin", ".cue"],
+            "best_games": ["Sonic CD", "Lunar: The Silver Star", "Lunar 2: Eternal Blue", "Snatcher", "Popful Mail", "Final Fight CD", "Shining Force CD"]
+        },
         "Saturn": {
             "name": "Sega Saturn",
             "folder": "saturn",
             "url": "https://myrient.erista.me/files/Redump/Sega%20-%20Saturn/",
-            "exts": [".zip", ".7z", ".bin", ".cue"],
-            "best_games": ["Panzer Dragoon Saga", "Nights Into Dreams", "Sega Rally", "Virtua Fighter 2", "Radiant Silvergun",
-        "Guardian Heroes", "Saturn Bomberman", "Panzer Dragoon Zwei", "Shining Force III", "Dragon Force",
-        "Street Fighter Alpha 3", "Legend of Oasis", "X-Men Vs. Street Fighter", "Burning Rangers", "Fighters Megamix"]
+            "exts": [".zip", ".7z", ".bin", ".cue", ".chd"],
+            "best_games": ["Panzer Dragoon Saga", "Nights Into Dreams", "Sega Rally", "Virtua Fighter 2", "Radiant Silvergun", "Guardian Heroes", "Saturn Bomberman", "Panzer Dragoon Zwei", "Shining Force III", "Dragon Force"]
         },
         "Dreamcast": {
             "name": "Dreamcast",
             "folder": "dreamcast",
             "url": "https://myrient.erista.me/files/Redump/Sega%20-%20Dreamcast/",
             "exts": [".zip", ".7z", ".gdi", ".chd"],
-            "best_games": ["SoulCalibur", "Jet Set Radio", "Jet Grind Radio", "Skies of Arcadia", "Crazy Taxi", "Marvel vs. Capcom 2",
-        "Code: Veronica", "Phantasy Star Online", "Shenmue", "Sonic Adventure", "Power Stone 2",
-        "Ikaruga", "Samba de Amigo", "Quake III", "Rez"]
+            "best_games": ["SoulCalibur", "Jet Set Radio", "Skies of Arcadia", "Crazy Taxi", "Marvel vs. Capcom 2", "Resident Evil Code: Veronica", "Phantasy Star Online", "Shenmue", "Sonic Adventure", "Power Stone 2", "Ikaruga", "Rez"]
         },
         "GameGear": {
             "name": "Game Gear",
@@ -103,6 +134,13 @@
             "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%20Game%20Gear/",
             "exts": [".zip", ".7z", ".gg"],
             "best_games": ["Sonic Chaos", "GG Shinobi", "Ax Battler", "Defenders of Oasis", "Columns"]
+        },
+        "SG1000": {
+            "name": "SG-1000",
+            "folder": "sg1000",
+            "url": "https://myrient.erista.me/files/No-Intro/Sega%20-%20SG-1000/",
+            "exts": [".zip", ".7z", ".sg"],
+            "best_games": ["Girl's Garden", "Monaco GP", "Lode Runner", "Flicky", "Champion Baseball"]
         }
     },
     "Sony": {
@@ -111,48 +149,135 @@
             "folder": "psx",
             "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation/",
             "exts": [".zip", ".7z", ".chd", ".bin"],
-            "best_games": ["Metal Gear Solid", "Final Fantasy VII", "Symphony of the Night", "Tekken 3", "Tony Hawk's Pro Skater 2",
-        "Resident Evil 2", "Gran Turismo 2", "Silent Hill", "Crash Bandicoot 3", "Warped", "Spyro the Dragon",
-        "Tomb Raider", "Vagrant Story", "Final Fantasy IX", "Chrono Cross", "Medal of Honor"]
+            "best_games": ["Metal Gear Solid", "Final Fantasy VII", "Symphony of the Night", "Tekken 3", "Tony Hawk's Pro Skater 2", "Resident Evil 2", "Gran Turismo 2", "Silent Hill", "Crash Bandicoot 3", "Spyro the Dragon", "Tomb Raider", "Vagrant Story", "Final Fantasy IX", "Chrono Cross"]
+        },
+        "PS2": {
+            "name": "PlayStation 2",
+            "folder": "ps2",
+            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%202/",
+            "exts": [".zip", ".7z", ".iso", ".bin", ".chd"],
+            "best_games": ["Grand Theft Auto: San Andreas", "Metal Gear Solid 3", "Final Fantasy X", "God of War II", "Shadow of the Colossus", "Kingdom Hearts II", "Persona 4", "Resident Evil 4", "Devil May Cry 3", "Okami"]
+        },
+        "PS3": {
+            "name": "PlayStation 3",
+            "folder": "ps3",
+            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%203/",
+            "exts": [".zip", ".7z", ".iso"],
+            "best_games": ["The Last of Us", "Uncharted 2", "Red Dead Redemption", "Metal Gear Solid 4", "Dark Souls", "Demon's Souls", "Journey", "Persona 5", "God of War III", "Gran Turismo 5"]
         },
         "PSP": {
             "name": "PlayStation Portable",
             "folder": "psp",
             "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%20Portable/",
             "exts": [".zip", ".7z", ".iso"],
-            "best_games": ["Ghost of Sparta", "Persona 3", "Crisis Core", "Peace Walker", "Monster Hunter Freedom Unite",
-        "Birth by Sleep", "Lumines", "War of the Lions", "Vice City Stories", "Liberty City Stories",
-        "Chains of Olympus", "Jeanne d'Arc", "Valkyria Chronicles 2", "Tactics Ogre", "Daxter"]
+            "best_games": ["God of War: Ghost of Sparta", "Persona 3 Portable", "Crisis Core", "Metal Gear Solid: Peace Walker", "Monster Hunter Freedom Unite", "Kingdom Hearts: Birth by Sleep", "Lumines", "Final Fantasy Tactics: War of the Lions", "Grand Theft Auto: Vice City Stories"]
         },
-        "PS2": {
-            "name": "PlayStation 2",
-            "folder": "ps2",
-            "url": "https://myrient.erista.me/files/Redump/Sony%20-%20PlayStation%202/",
-            "exts": [".zip", ".7z", ".iso", ".bin"],
-            "best_games": ["Grand Theft Auto: San Andreas", "Metal Gear Solid 3", "Final Fantasy X", "God of War II", "Shadow of the Colossus"]
+        "PSVita": {
+            "name": "PlayStation Vita",
+            "folder": "psvita",
+            "url": "https://myrient.erista.me/files/No-Intro/Unofficial%20-%20Sony%20-%20PlayStation%20Vita%20(NoNpDrm)/",
+            "exts": [".zip", ".7z", ".vpk"],
+            "best_games": ["Persona 4 Golden", "Gravity Rush", "Uncharted: Golden Abyss", "Tearaway", "Killzone: Mercenary", "Soul Sacrifice Delta", "Danganronpa", "Freedom Wars", "Odin Sphere Leifthrasir"]
         }
     },
-    "Other": {
-        "NeoGeo": {
-            "name": "Neo Geo Pocket Color",
-            "folder": "ngpc",
-            "url": "https://myrient.erista.me/files/No-Intro/SNK%20-%20NeoGeo%20Pocket%20Color/",
-            "exts": [".zip", ".7z", ".ngc"],
-            "best_games": ["Metal Slug", "King of Fighters", "Samurai Shodown", "Last Blade", "Garou", "SVC Chaos", "SNK Gals' Fighters"]
+    "Microsoft": {
+        "Xbox": {
+            "name": "Xbox",
+            "folder": "xbox",
+            "url": "https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox/",
+            "exts": [".zip", ".7z", ".iso"],
+            "best_games": ["Halo: Combat Evolved", "Halo 2", "Fable", "Knights of the Old Republic", "Jade Empire", "Ninja Gaiden Black", "Panzer Dragoon Orta", "Forza Motorsport", "Splinter Cell: Chaos Theory", "Jet Set Radio Future"]
         },
+        "Xbox360": {
+            "name": "Xbox 360",
+            "folder": "xbox360",
+            "url": "https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox%20360/",
+            "exts": [".zip", ".7z", ".iso"],
+            "best_games": ["Halo 3", "Gears of War", "Mass Effect 2", "Red Dead Redemption", "Dark Souls", "Forza Motorsport 4", "The Elder Scrolls V: Skyrim", "Grand Theft Auto V", "Bioshock", "Portal 2"]
+        }
+    },
+    "NEC": {
         "PC_Engine": {
             "name": "PC Engine / TurboGrafx-16",
             "folder": "pcengine",
             "url": "https://myrient.erista.me/files/No-Intro/NEC%20-%20PC%20Engine%20-%20TurboGrafx-16/",
             "exts": [".zip", ".7z", ".pce"],
-            "best_games": ["R-Type", "Bonk's Adventure", "Bomberman '93", "Ninja Spirit", "Ys Book I & II", "Castlevania: Rondo of Blood", "Military Madness", "Alien Crush", "Blazing Lazers", "Neutopia"]
+            "best_games": ["R-Type", "Bonk's Adventure", "Bomberman '93", "Ninja Spirit", "Military Madness", "Alien Crush", "Blazing Lazers", "Neutopia"]
         },
+        "PC_Engine_CD": {
+            "name": "PC Engine CD / TurboGrafx-CD",
+            "folder": "pcenginecd",
+            "url": "https://myrient.erista.me/files/Redump/NEC%20-%20PC%20Engine%20CD%20&%20TurboGrafx%20CD/",
+            "exts": [".zip", ".7z", ".chd", ".bin", ".cue"],
+            "best_games": ["Ys Book I & II", "Castlevania: Rondo of Blood", "Dracula X: Chi no Rondo", "Lords of Thunder", "Gate of Thunder", "Snatcher", "Dynastic Hero"]
+        },
+        "SuperGrafx": {
+            "name": "SuperGrafx",
+            "folder": "supergrafx",
+            "url": "https://myrient.erista.me/files/No-Intro/NEC%20-%20PC%20Engine%20SuperGrafx/",
+            "exts": [".zip", ".7z", ".sgx"],
+            "best_games": ["Ghouls 'n Ghosts", "Aldynes", "Battle Ace", "Granzort", "1941: Counter Attack"]
+        }
+    },
+    "SNK": {
+        "NeoGeoPocket": {
+            "name": "Neo Geo Pocket",
+            "folder": "ngp",
+            "url": "https://myrient.erista.me/files/No-Intro/SNK%20-%20NeoGeo%20Pocket/",
+            "exts": [".zip", ".7z", ".ngp"],
+            "best_games": ["Samurai Shodown!", "King of Fighters R-1", "Metal Slug 1st Mission"]
+        },
+        "NeoGeoPocketColor": {
+            "name": "Neo Geo Pocket Color",
+            "folder": "ngpc",
+            "url": "https://myrient.erista.me/files/No-Intro/SNK%20-%20NeoGeo%20Pocket%20Color/",
+            "exts": [".zip", ".7z", ".ngc"],
+            "best_games": ["SNK vs. Capcom: Match of the Millennium", "Metal Slug 2nd Mission", "King of Fighters R-2", "Sonic the Hedgehog Pocket Adventure", "Card Fighters' Clash", "Last Blade: Beyond the Destiny", "SNK Gals' Fighters"]
+        }
+    },
+    "Atari": {
         "Atari2600": {
             "name": "Atari 2600",
             "folder": "atari2600",
             "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%20Atari%202600/",
             "exts": [".zip", ".7z", ".a26"],
             "best_games": ["Pitfall!", "River Raid", "Space Invaders", "Adventure", "Yars' Revenge"]
+        },
+        "Atari5200": {
+            "name": "Atari 5200",
+            "folder": "atari5200",
+            "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%208-bit%20Family/",
+            "exts": [".zip", ".7z", ".a52"],
+            "best_games": ["Moon Patrol", "Robotron: 2084", "Centipede", "Joust", "Pac-Man"]
+        },
+        "Atari7800": {
+            "name": "Atari 7800",
+            "folder": "atari7800",
+            "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%20Atari%207800%20(BIN)/",
+            "exts": [".zip", ".7z", ".a78"],
+            "best_games": ["Ninja Golf", "Alien Brigade", "Food Fight", "Midnight Mutants", "Choplifter!"]
+        },
+        "AtariLynx": {
+            "name": "Atari Lynx",
+            "folder": "atarilynx",
+            "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%20Lynx%20(BLL)/",
+            "exts": [".zip", ".7z", ".lnx"],
+            "best_games": ["California Games", "Chip's Challenge", "Todd's Adventures in Slime World", "Blue Lightning", "Rygar"]
+        },
+        "AtariJaguar": {
+            "name": "Atari Jaguar",
+            "folder": "atarijaguar",
+            "url": "https://myrient.erista.me/files/No-Intro/Atari%20-%20Atari%20Jaguar%20(ROM)/",
+            "exts": [".zip", ".7z", ".j64"],
+            "best_games": ["Tempest 2000", "Alien vs. Predator", "Iron Soldier", "Rayman", "Super Burnout"]
+        },
+        "AtariJaguarCD": {
+            "name": "Atari Jaguar CD",
+            "folder": "atarijaguarcd",
+            "url": "https://myrient.erista.me/files/Redump/Atari%20-%20Jaguar%20CD%20Interactive%20Multimedia%20System/",
+            "exts": [".zip", ".7z", ".chd", ".bin", ".cue"],
+            "best_games": ["Myst", "Primal Rage", "Battlemorph", "Highlander", "World Tour Racing"]
         }
     }
+
 }

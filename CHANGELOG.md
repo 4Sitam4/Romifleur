@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.2] - 2026-02-03
+### Added
+- **New Consoles Supported**: Massive update to the console list!
+  - **Nintendo**: Wii, Wii U, Virtual Boy
+  - **Sega**: Sega 32X, Sega CD, SG-1000
+  - **Sony**: PS3
+  - **Microsoft**: Xbox, Xbox 360
+  - **NEC**: PC Engine CD, SuperGrafx
+  - **SNK**: Neo Geo Pocket, Neo Geo Pocket Color
+  - **Atari**: 5200, 7800, Lynx, Jaguar, Jaguar CD
+
+### Changed
+- **Metadata**: Updated all Platform IDs for TheGamesDB and IGDB to support the new consoles.
+
+### Removed
+- **Unsupported Systems**: Removed experimental/unsupported systems to focus on core consoles:
+  - Bandai (WonderSwan)
+  - 3DO
+  - Philips CD-i
+  - Arcade (MAME, FBNeo)
+
 ## [3.2.1] - 2026-02-03
 ### Added
 - **Multi-Source Metadata**: Added system to query multiple APIs (TheGamesDB + IGDB) in parallel.
