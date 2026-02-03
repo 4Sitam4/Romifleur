@@ -29,7 +29,7 @@ class DownloadPanel extends ConsumerWidget {
                   'Download Queue',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const Spacer(),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,

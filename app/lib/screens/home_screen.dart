@@ -341,61 +341,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildDesktopLayout() {
     return Scaffold(
-      body: Row(
-        children: [
-          SizedBox(
-            width: 280,
-            child: ConsoleSidebar(
-              onConsoleSelected: null,
-            ), // No auto-switch on desktop
-          ),
-          const Expanded(child: RomListPanel()),
-          const SizedBox(width: 350, child: DownloadPanel()),
-        ],
+      backgroundColor: AppTheme.sidebarColor,
+      body: SafeArea(
+        left: true,
+        right: true,
+        top: false, // Keep status bar overlay
+        bottom: false,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 280,
+              child: ConsoleSidebar(
+                onConsoleSelected: null,
+              ), // No auto-switch on desktop
+            ),
+            const Expanded(child: RomListPanel()),
+            const VerticalDivider(thickness: 1, width: 1),
+            const SizedBox(width: 350, child: DownloadPanel()),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTabletLayout() {
     return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (int index) {
-              setState(() => _selectedIndex = index);
-            },
-            labelType: NavigationRailLabelType.all,
-            backgroundColor: AppTheme.sidebarColor,
-            selectedIconTheme: const IconThemeData(
-              color: AppTheme.primaryColor,
+      backgroundColor: AppTheme.sidebarColor,
+      body: SafeArea(
+        left: true,
+        right: true,
+        top: false,
+        bottom: false,
+        child: Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (int index) {
+                setState(() => _selectedIndex = index);
+              },
+              labelType: NavigationRailLabelType.all,
+              backgroundColor: AppTheme.sidebarColor,
+              selectedIconTheme: const IconThemeData(
+                color: AppTheme.primaryColor,
+              ),
+              unselectedIconTheme: const IconThemeData(
+                color: AppTheme.textMuted,
+              ),
+              leading: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: _openSettings,
+                ),
+              ),
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.gamepad),
+                  label: Text('Consoles'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.sports_esports),
+                  label: Text('Games'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.download),
+                  label: Text('Downloads'),
+                ),
+              ],
             ),
-            unselectedIconTheme: const IconThemeData(color: AppTheme.textMuted),
-            leading: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: _openSettings,
-              ),
-            ),
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.gamepad),
-                label: Text('Consoles'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.sports_esports),
-                label: Text('Games'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.download),
-                label: Text('Downloads'),
-              ),
-            ],
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: _buildBodyContent(showSettings: false)),
-        ],
+            const VerticalDivider(thickness: 1, width: 1),
+            Expanded(child: _buildBodyContent(showSettings: false)),
+          ],
+        ),
       ),
     );
   }

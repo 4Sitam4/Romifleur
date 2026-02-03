@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.4] - 2026-02-03
+## [3.2.0] - 2026-02-03
 ### Added
 - **Language Filters**: Filter ROMs by language (En, Fr, De, Es, It, Ja). Combine with region filters!
 - **World Region**: Added "World" region filter for `(World)` releases.
@@ -10,9 +10,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - **Show All Versions**: Removed auto-deduplication that hid USA/Japan versions. All matching versions now displayed.
+- **Filter Badge Removed**: Removed the incomplete filter count badge from filter button.
 
 ### Fixed
 - **USA Games Missing** (#37): Fixed bug where USA versions were hidden due to region scoring bias.
+- **Landscape Mode (Android)**: Fixed UI being hidden by notch/navigation bar in landscape orientation.
+- **Desktop Divider**: Fixed missing vertical divider between ROM list and Download Queue on Windows/Linux/macOS.
 
 ## [3.1.3] - 2026-02-02
 ### Fixed

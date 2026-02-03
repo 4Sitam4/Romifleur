@@ -10,6 +10,7 @@
 *   **Multi-Platform**: Runs natively on all major desktop OSs and Android devices.
 *   **Web/Docker Version**: Deploy a server-side instance that manages downloads directly to your server's filesystem.
 *   **Modern UI**: A sleek, dark-themed interface built with Flutter, responsive from mobile to desktop.
+*   **Advanced Filtering**: Filter games by region (Europe, USA, Japan, World) and language (En, Fr, De, Es, It, Ja).
 *   **Rich Metadata**: Integrated with [**TheGamesDB**](https://thegamesdb.net/) to automatically fetch game covers, descriptions, and release dates.
 *   **RetroAchievements Integration**: Connect your [RetroAchievements](https://retroachievements.org/) account to instantly see which games support achievements (🏆).
 *   **Smart Queue**: Queue up multiple downloads from different consoles and let Romifleur handle them in the background.
