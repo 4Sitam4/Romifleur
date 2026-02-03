@@ -1,8 +1,8 @@
 # Romifleur
 
 ![Romifleur Logo](app/assets/logo-romifleur.png)
-![Romifleur Screenshot](app/assets/images/romifleur_screenshot.png)
-![Screenshots](assets_readme/image_carousel/carousel.gif)
+![Desktop Screenshots](assets_readme/image_carousel_desktop/carousel.gif)
+![Mobile Screenshots](assets_readme/image_carousel_phone_horizontal/carousel.gif)
 
 **Romifleur** is a modern, cross-platform application designed to simplify the process of browsing, organizing, and downloading retro game ROMs. Now rewritten in **Flutter**, it offers a unified experience across **Windows, macOS, Linux, Android, and the Web (Docker)**.
 
