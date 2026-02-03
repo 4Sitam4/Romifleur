@@ -12,6 +12,7 @@ import '../widgets/console_sidebar.dart';
 import '../widgets/rom_list.dart';
 import '../widgets/download_panel.dart';
 import 'settings_screen.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -46,6 +47,107 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           await _showRaSetupDialog();
         }
       }
+    }
+
+    if (mounted) {
+      _checkForUpdates();
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    // Check updates for all platforms including Web/Docker
+    try {
+      final updateService = ref.read(updateServiceProvider);
+      final updateInfo = await updateService.checkForUpdates();
+
+      if (updateInfo != null && updateInfo.hasUpdate && mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppTheme.cardColor,
+            title: Row(
+              children: [
+                const Icon(Icons.new_releases, color: AppTheme.accentColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Update Available: ${updateInfo.latestVersion}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              height: 400, // Fixed height for scrolling
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'A new version is available (Current: ${updateInfo.currentVersion})',
+                    style: const TextStyle(color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  Expanded(
+                    child: Markdown(
+                      data: updateInfo.changelogDiff,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(color: AppTheme.textPrimary),
+                        h1: const TextStyle(
+                          color: AppTheme.accentColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h2: const TextStyle(
+                          color: AppTheme.accentColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        h3: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        listBullet: const TextStyle(
+                          color: AppTheme.textSecondary,
+                        ),
+                        strong: const TextStyle(color: Colors.white),
+                        blockquote: TextStyle(
+                          color: AppTheme.textMuted,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Later',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  launchUrl(
+                    Uri.parse(
+                      'https://github.com/4Sitam4/Romifleur/releases/latest',
+                    ),
+                    mode: LaunchMode.externalApplication,
+                  );
+                },
+                child: const Text('View Release'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('Update check failed: $e');
     }
   }
 

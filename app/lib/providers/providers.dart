@@ -3,6 +3,7 @@ import 'package:romifleur/services/config_service.dart';
 import 'package:romifleur/services/rom_service.dart';
 import 'package:romifleur/services/metadata_service.dart';
 import 'package:romifleur/services/ra_service.dart';
+import 'package:romifleur/services/update_service.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
 import '../models/download.dart';
@@ -14,6 +15,7 @@ final metadataServiceProvider = Provider<MetadataService>(
   (ref) => MetadataService(),
 );
 final raServiceProvider = Provider<RaService>((ref) => RaService());
+final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 
 // ===== CONSOLES PROVIDER =====
 final consolesProvider = FutureProvider<List<CategoryModel>>((ref) async {

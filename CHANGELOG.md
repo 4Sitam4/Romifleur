@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.3] - 2026-02-03
+### Added
+- **Update Checker**: Automatically notifies users when a new version of Romifleur is available.
+- **Changelog**: Displays the list of changes (Changelog) directly in the application during an update.
+- **Web/Docker**: The "View Release" button redirects to the GitHub release page for manual updating (docker pull).
+
 ## [3.2.2] - 2026-02-03
 ### Added
 - **New Consoles Supported**: Massive update to the console list!
