@@ -74,6 +74,40 @@ class ConfigService {
     await _prefs.setString(_kRomsPathKey, path);
   }
 
+  // ===== SAF URI SUPPORT (Android SD Card) =====
+  static const String _kRomsUriKey = 'roms_uri';
+
+  /// Check if a path/URI is a SAF content URI
+  bool isSafUri(String? pathOrUri) {
+    if (pathOrUri == null) return false;
+    return pathOrUri.startsWith('content://');
+  }
+
+  /// Get SAF URI for downloads (Android SD card)
+  String? getDownloadUri() {
+    return _prefs.getString(_kRomsUriKey);
+  }
+
+  /// Set SAF URI for downloads (Android SD card)
+  Future<void> setDownloadUri(String uri) async {
+    await _prefs.setString(_kRomsUriKey, uri);
+    // Also clear the regular path to avoid confusion
+    await _prefs.remove(_kRomsPathKey);
+  }
+
+  /// Clear SAF URI
+  Future<void> clearDownloadUri() async {
+    await _prefs.remove(_kRomsUriKey);
+  }
+
+  /// Get effective download location (URI or path)
+  /// Returns the URI if set (SAF), otherwise the path
+  Future<String?> getEffectiveDownloadLocation() async {
+    final uri = getDownloadUri();
+    if (uri != null) return uri;
+    return await getDownloadPath();
+  }
+
   String get raApiKey => _prefs.getString(_kRaApiKey) ?? '';
 
   Future<void> setRaApiKey(String key) async {

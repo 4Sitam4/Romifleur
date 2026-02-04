@@ -314,9 +314,9 @@ class RomsNotifier extends StateNotifier<RomsState> {
     if (customPath != null && customPath.isNotEmpty) {
       scanPath = customPath;
     } else {
-      // For native: use downloadPath + defaultFolder
+      // For natives: use downloadPath + defaultFolder
       // For web: just send the folder name (server handles it)
-      final downloadPath = await configService.getDownloadPath();
+      final downloadPath = await configService.getEffectiveDownloadLocation();
       if (downloadPath != null) {
         scanPath = '$downloadPath/$defaultFolder';
       } else {
@@ -536,7 +536,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     state = state.copyWith(isLoading: true);
     final itemsToDownload = List<DownloadItem>.from(state.items);
     final totalCount = itemsToDownload.length;
-    final saveDir = await configService.getDownloadPath();
+    final saveDir = await configService.getEffectiveDownloadLocation();
     if (saveDir == null) {
       state = state.copyWith(
         isLoading: false,

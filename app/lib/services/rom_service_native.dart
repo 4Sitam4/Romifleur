@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
@@ -8,6 +9,8 @@ import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
+import 'package:saf_stream/saf_stream.dart';
+import 'package:saf_util/saf_util.dart';
 
 class RomService {
   final ConfigService _configService = ConfigService();
@@ -196,26 +199,13 @@ class RomService {
     final encodedName = Uri.encodeComponent(filename).replaceAll('+', '%20');
     final downloadUrl = '$baseUrl$encodedName';
 
-    // Use custom path if provided, otherwise use default folder structure
-    final String finalPath;
-    if (customPath != null && customPath.isNotEmpty) {
-      finalPath = p.join(customPath, filename);
-    } else {
-      finalPath = p.join(saveDir, config['folder'] ?? consoleKey, filename);
-    }
+    // Check if we're using SAF (content:// URI)
+    final bool useSaf = _configService.isSafUri(saveDir);
 
-    await Directory(p.dirname(finalPath)).create(recursive: true);
-
-    if (await File(finalPath).exists()) {
-      yield 1.0;
-      return;
-    }
-
-    print('⬇️ Downloading: $downloadUrl to $finalPath');
+    print('⬇️ Downloading: $downloadUrl');
+    print('📂 Save dir: $saveDir (SAF: $useSaf)');
 
     final client = http.Client();
-    final file = File('$finalPath.tmp');
-    IOSink? sink;
 
     // Register cancellation
     cancelToken?.onCancel(() {
@@ -234,31 +224,80 @@ class RomService {
       final totalLength = response.contentLength ?? 0;
       int received = 0;
 
-      sink = file.openWrite();
-
-      await for (final chunk in response.stream) {
-        if (cancelToken?.isCancelled ?? false) {
-          throw Exception('Download cancelled');
+      if (useSaf) {
+        // === SAF PATH (Android SD Card) ===
+        await for (final progress in _downloadWithSaf(
+          response.stream,
+          saveDir,
+          config['folder'] ?? consoleKey,
+          filename,
+          totalLength,
+          cancelToken,
+        )) {
+          yield progress;
         }
-        sink.add(chunk);
-        received += chunk.length;
-        if (totalLength > 0) yield received / totalLength;
-      }
-      await sink.close();
-      sink = null;
+      } else {
+        // === REGULAR PATH (Internal storage / Desktop) ===
+        final String finalPath;
+        if (customPath != null && customPath.isNotEmpty) {
+          finalPath = p.join(customPath, filename);
+        } else {
+          finalPath = p.join(saveDir, config['folder'] ?? consoleKey, filename);
+        }
 
-      await file.rename(finalPath);
-    } catch (e) {
-      // Cleanup on error or cancellation
-      await sink?.close();
-      if (await file.exists()) {
+        await Directory(p.dirname(finalPath)).create(recursive: true);
+
+        if (await File(finalPath).exists()) {
+          yield 1.0;
+          return;
+        }
+
+        final file = File('$finalPath.tmp');
+        IOSink? sink;
+
         try {
-          await file.delete();
-          print('🗑️ Deleted incomplete file: ${file.path}');
-        } catch (delError) {
-          print('⚠️ Failed to delete incomplete file: $delError');
+          sink = file.openWrite();
+
+          await for (final chunk in response.stream) {
+            if (cancelToken?.isCancelled ?? false) {
+              throw Exception('Download cancelled');
+            }
+            sink.add(chunk);
+            received += chunk.length;
+            if (totalLength > 0) yield received / totalLength;
+          }
+          await sink.close();
+          sink = null;
+
+          await file.rename(finalPath);
+        } catch (e) {
+          await sink?.close();
+          if (await file.exists()) {
+            try {
+              await file.delete();
+              print('🗑️ Deleted incomplete file: ${file.path}');
+            } catch (delError) {
+              print('⚠️ Failed to delete incomplete file: $delError');
+            }
+          }
+          rethrow;
+        }
+
+        // Handle zip extraction for regular paths
+        if (filename.toLowerCase().endsWith('.zip')) {
+          yield 1.01;
+          try {
+            await for (final progress in _extractZipStream(finalPath)) {
+              if (cancelToken?.isCancelled ?? false)
+                throw Exception('Cancelled during extraction');
+              yield 1.0 + progress;
+            }
+          } catch (e) {
+            print('⚠️ Extraction failed: $e');
+          }
         }
       }
+    } catch (e) {
       if (cancelToken?.isCancelled ?? false) {
         print('✅ Clean cancellation handled');
         throw Exception('Download cancelled');
@@ -267,32 +306,170 @@ class RomService {
     } finally {
       client.close();
     }
+  }
 
-    if (filename.toLowerCase().endsWith('.zip')) {
-      yield 1.01;
-      try {
-        // We could also pass token to extraction if needed
-        await for (final progress in _extractZipStream(finalPath)) {
-          if (cancelToken?.isCancelled ?? false)
-            throw Exception('Cancelled during extraction');
-          yield 1.0 + progress;
+  /// Download using SAF for Android SD card access
+  /// For ZIPs: download to temp, extract, paste to SAF
+  Stream<double> _downloadWithSaf(
+    Stream<List<int>> responseStream,
+    String safDirUri,
+    String subFolder,
+    String filename,
+    int totalLength,
+    DownloadCancellationToken? cancelToken,
+  ) async* {
+    final safStream = SafStream();
+    final safUtil = SafUtil();
+    int received = 0;
+    final bool isZip = filename.toLowerCase().endsWith('.zip');
+
+    try {
+      // Create subfolder if it doesn't exist
+      final subDirResult = await safUtil.mkdirp(safDirUri, [subFolder]);
+      final targetDirUri = subDirResult.uri;
+
+      if (isZip) {
+        // === ZIP HANDLING: Download to temp cache, extract, paste to SAF ===
+        print('📦 ZIP detected - using temp cache extraction method');
+
+        // Get temp directory for extraction
+        final tempDir = await Directory.systemTemp.createTemp('romifleur_zip_');
+        final tempZipPath = p.join(tempDir.path, filename);
+
+        try {
+          // Download to temp file
+          final tempFile = File(tempZipPath);
+          final sink = tempFile.openWrite();
+
+          await for (final chunk in responseStream) {
+            if (cancelToken?.isCancelled ?? false) {
+              await sink.close();
+              throw Exception('Download cancelled');
+            }
+            sink.add(chunk);
+            received += chunk.length;
+            if (totalLength > 0) yield received / totalLength * 0.8; // 0-80%
+          }
+          await sink.close();
+
+          print('✅ ZIP downloaded to temp: $tempZipPath');
+          yield 0.8; // 80% - download complete
+
+          // Extract ZIP locally
+          extractFileToDisk(tempZipPath, tempDir.path);
+          print('✅ ZIP extracted locally');
+          yield 0.9; // 90% - extraction complete
+
+          // Delete the ZIP file from temp
+          await tempFile.delete();
+
+          // Paste all extracted files to SAF
+          final extractedFiles = tempDir.listSync(recursive: true);
+          int fileIndex = 0;
+          final totalFiles = extractedFiles.whereType<File>().length;
+
+          for (final entity in extractedFiles) {
+            if (entity is File) {
+              final relativePath = p.relative(entity.path, from: tempDir.path);
+              // Skip the original zip if it somehow exists
+              if (relativePath == filename) continue;
+
+              // Create parent dirs in SAF if needed
+              final parentDir = p.dirname(relativePath);
+              String destDirUri = targetDirUri;
+              if (parentDir != '.' && parentDir.isNotEmpty) {
+                final subDirs = parentDir.split(p.separator);
+                final parentResult = await safUtil.mkdirp(
+                  targetDirUri,
+                  subDirs,
+                );
+                destDirUri = parentResult.uri;
+              }
+
+              // Paste file to SAF manually (stream copy) to avoid API issues
+              final localFileStream = entity.openRead();
+              final copyWriteInfo = await safStream.startWriteStream(
+                destDirUri,
+                p.basename(entity.path),
+                'application/octet-stream',
+              );
+              final copySessionId = copyWriteInfo.session;
+
+              try {
+                await for (final chunk in localFileStream) {
+                  await safStream.writeChunk(
+                    copySessionId,
+                    Uint8List.fromList(chunk),
+                  );
+                }
+                await safStream.endWriteStream(copySessionId);
+              } catch (e) {
+                try {
+                  await safStream.endWriteStream(copySessionId);
+                } catch (_) {}
+                rethrow;
+              }
+
+              fileIndex++;
+              yield 0.9 + (0.1 * fileIndex / totalFiles); // 90-100%
+            }
+          }
+
+          // Cleanup temp directory
+          await tempDir.delete(recursive: true);
+          print('✅ SAF extraction complete, temp cleaned up');
+          yield 1.0;
+        } catch (e) {
+          // Cleanup temp on error
+          try {
+            await tempDir.delete(recursive: true);
+          } catch (_) {}
+          rethrow;
         }
-      } catch (e) {
-        print('❌ Extraction stream error: $e');
-        if (cancelToken?.isCancelled ?? false) {
-          // If cancelled during extraction, allow keeping the zip?
-          // User said: "Par contre si un fichier à déjà été décompressé alors il peut rester."
-          // "But if a file has already been decompressed then it can stay."
-          // This might imply keeping partial extraction or keeping the zip.
-          // Usually on extraction cancel, we might want to stop.
-          // We won't delete the zip if extraction fails/cancels, unless it's corrupt.
-          // Logic: Just stop.
-          throw Exception('Download cancelled');
+      } else {
+        // === NON-ZIP: Direct streaming to SAF ===
+        String? sessionId;
+
+        try {
+          // Start write stream
+          final writeInfo = await safStream.startWriteStream(
+            targetDirUri,
+            filename,
+            'application/octet-stream',
+          );
+          sessionId = writeInfo.session;
+
+          print('📝 SAF write session started: $sessionId');
+
+          // Stream download chunks directly to SAF
+          await for (final chunk in responseStream) {
+            if (cancelToken?.isCancelled ?? false) {
+              throw Exception('Download cancelled');
+            }
+            await safStream.writeChunk(sessionId, Uint8List.fromList(chunk));
+            received += chunk.length;
+            if (totalLength > 0) yield received / totalLength;
+          }
+
+          // End write stream
+          await safStream.endWriteStream(sessionId);
+          sessionId = null;
+
+          print('✅ SAF download complete: $filename');
+          yield 1.0;
+        } catch (e) {
+          // Try to clean up session if it was started
+          if (sessionId != null) {
+            try {
+              await safStream.endWriteStream(sessionId);
+            } catch (_) {}
+          }
+          rethrow;
         }
-        rethrow;
       }
+    } catch (e) {
+      rethrow;
     }
-    yield 2.0;
   }
 
   Stream<double> _extractZipStream(String zipPath) async* {

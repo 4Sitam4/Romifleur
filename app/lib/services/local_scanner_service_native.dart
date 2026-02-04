@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:saf_util/saf_util.dart';
 import '../models/ownership_status.dart';
 
 /// Service for scanning local ROM files (Native implementation)
@@ -13,26 +14,46 @@ class LocalScannerService {
     final List<String> foundFiles = [];
 
     try {
-      final dir = Directory(directoryPath);
-      if (!await dir.exists()) {
-        return [];
-      }
+      if (directoryPath.startsWith('content://')) {
+        // === SAF SCANNING ===
+        final safUtil = SafUtil();
+        // Verify existence first check is implicit in list?
+        // SafUtil.list returns list of SafFile
+        final files = await safUtil.list(directoryPath);
 
-      await for (final entity in dir.list(recursive: false)) {
-        if (entity is File) {
-          final filename = p.basename(entity.path);
+        for (final info in files) {
+          final filename = info.name;
           final ext = p.extension(filename).toLowerCase();
 
-          // Check if extension matches (extensions should include the dot)
           if (extensions.any(
             (e) => ext == e.toLowerCase() || ext == '.$e'.toLowerCase(),
           )) {
             foundFiles.add(filename);
           }
         }
+      } else {
+        // === FILE SYSTEM SCANNING ===
+        final dir = Directory(directoryPath);
+        if (!await dir.exists()) {
+          return [];
+        }
+
+        await for (final entity in dir.list(recursive: false)) {
+          if (entity is File) {
+            final filename = p.basename(entity.path);
+            final ext = p.extension(filename).toLowerCase();
+
+            // Check if extension matches (extensions should include the dot)
+            if (extensions.any(
+              (e) => ext == e.toLowerCase() || ext == '.$e'.toLowerCase(),
+            )) {
+              foundFiles.add(filename);
+            }
+          }
+        }
       }
     } catch (e) {
-      print('❌ Error scanning directory: $e');
+      print('❌ Error scanning directory ($directoryPath): $e');
     }
 
     return foundFiles;

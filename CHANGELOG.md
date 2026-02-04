@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.3] - 2026-02-05
+### Fixed
+- **Android SD Card Support (Issue #46)**: Implemented full support for downloading to external SD cards on Android 11+ using the Storage Access Framework (SAF).
+  - Fixed `PathAccessException` / "Invalid URI" errors when writing to external storage.
+  - Implemented robust ZIP extraction for SAF: Downloads to temp cache -> Extracts -> Copies to SD Card.
+  - Added native folder picker for compliant access to SD cards.
+  - Improved progress bar accuracy to reflect download, extraction, and copy steps.
+
 ## [3.3.2] - 2026-02-04
 ### Fixed
 - Code cleanup: removed unused imports and fixed lint warnings.

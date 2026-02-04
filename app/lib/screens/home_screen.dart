@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:saf_util/saf_util.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
@@ -38,9 +39,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final config = ref.read(configServiceProvider);
     await config.init(); // Ensure config is ready
-    final path = await config.getDownloadPath();
+    final location = await config.getEffectiveDownloadLocation();
 
-    if (path == null) {
+    if (location == null) {
       if (mounted) {
         await _showSetupDialog();
         if (mounted) {
@@ -339,17 +340,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           actions: [
             ElevatedButton(
               onPressed: () async {
-                if (!kIsWeb && Platform.isAndroid) {
-                  final granted = await _requestStoragePermission();
-                  if (!granted) return;
-                }
+                final config = ref.read(configServiceProvider);
 
-                final String? result = await FilePicker.platform
-                    .getDirectoryPath();
-                if (result != null && mounted) {
-                  final config = ref.read(configServiceProvider);
-                  await config.setDownloadPath(result);
-                  Navigator.of(context).pop();
+                if (!kIsWeb && Platform.isAndroid) {
+                  // Android: Use SAF for proper SD card support
+                  try {
+                    final safUtil = SafUtil();
+                    final result = await safUtil.pickDirectory(
+                      writePermission: true,
+                      persistablePermission: true,
+                    );
+                    if (result != null && mounted) {
+                      print('✅ SAF folder selected: ${result.uri}');
+                      // Store the SAF URI, not the path
+                      await config.setDownloadUri(result.uri);
+                      Navigator.of(context).pop();
+                    }
+                  } catch (e) {
+                    print(
+                      '⚠️ SAF picker failed: $e - falling back to FilePicker',
+                    );
+                    // Fallback to FilePicker if SAF fails
+                    final granted = await _requestStoragePermission();
+                    if (!granted) return;
+
+                    final String? result = await FilePicker.platform
+                        .getDirectoryPath();
+                    if (result != null && mounted) {
+                      print('📁 FilePicker result: $result');
+                      // Check if FilePicker returned a content:// URI (Android 11+)
+                      if (result.startsWith('content://')) {
+                        await config.setDownloadUri(result);
+                      } else {
+                        await config.setDownloadPath(result);
+                      }
+                      Navigator.of(context).pop();
+                    }
+                  }
+                } else {
+                  // Other platforms: use FilePicker
+                  final String? result = await FilePicker.platform
+                      .getDirectoryPath();
+                  if (result != null && mounted) {
+                    await config.setDownloadPath(result);
+                    Navigator.of(context).pop();
+                  }
                 }
               },
               child: const Text('Select Folder'),
