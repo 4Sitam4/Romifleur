@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.2] - 2026-02-04
+### Fixed
+- Code cleanup: removed unused imports and fixed lint warnings.
+
 ## [3.3.1] - 2026-02-04
 ### Fixed
 - **Out of Memory on Large ROMs (Issue #45)**: Fixed extraction crash on files 600MB+ by switching to streaming extraction (`extractFileToDisk`). Affects both Native and Docker/Web versions.
