@@ -81,43 +81,52 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
               right: 16 + MediaQuery.of(context).padding.right,
               bottom: 16 + MediaQuery.of(context).padding.bottom,
               child: FloatingActionButton.extended(
-                onPressed: () async {
-                  final selectedRoms = ref
-                      .read(romsProvider.notifier)
-                      .getSelectedRoms();
-                  ref
-                      .read(downloadQueueProvider.notifier)
-                      .addToQueue(
-                        selectedConsole.category!,
-                        selectedConsole.console!.key,
-                        selectedRoms,
-                      );
-                  ref.read(romsProvider.notifier).deselectAll();
+                onPressed:
+                    ref.watch(downloadQueueProvider).progress.isDownloading
+                    ? null
+                    : () async {
+                        final selectedRoms = ref
+                            .read(romsProvider.notifier)
+                            .getSelectedRoms();
+                        ref
+                            .read(downloadQueueProvider.notifier)
+                            .addToQueue(
+                              selectedConsole.category!,
+                              selectedConsole.console!.key,
+                              selectedRoms,
+                            );
+                        ref.read(romsProvider.notifier).deselectAll();
 
-                  setState(() {
-                    _addToQueueMessage = 'Added ${selectedRoms.length} games!';
-                  });
+                        setState(() {
+                          _addToQueueMessage =
+                              'Added ${selectedRoms.length} games!';
+                        });
 
-                  _queueTimer?.cancel();
-                  _queueTimer = Timer(const Duration(seconds: 2), () {
-                    if (mounted) {
-                      setState(() {
-                        _addToQueueMessage = null;
-                      });
-                    }
-                  });
-                },
-                backgroundColor: _addToQueueMessage != null
-                    ? AppTheme.accentColor
-                    : AppTheme.primaryColor,
+                        _queueTimer?.cancel();
+                        _queueTimer = Timer(const Duration(seconds: 2), () {
+                          if (mounted) {
+                            setState(() {
+                              _addToQueueMessage = null;
+                            });
+                          }
+                        });
+                      },
+                backgroundColor:
+                    ref.watch(downloadQueueProvider).progress.isDownloading
+                    ? Colors.grey
+                    : (_addToQueueMessage != null
+                          ? AppTheme.accentColor
+                          : AppTheme.primaryColor),
                 icon: Icon(
                   _addToQueueMessage != null
                       ? Icons.check
                       : Icons.add_shopping_cart,
                 ),
                 label: Text(
-                  _addToQueueMessage ??
-                      'Add to Queue (${romsState.selectedCount})',
+                  ref.watch(downloadQueueProvider).progress.isDownloading
+                      ? 'Download in progress...'
+                      : (_addToQueueMessage ??
+                            'Add to Queue (${romsState.selectedCount})'),
                 ),
               ),
             ),
@@ -294,6 +303,47 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                           onSelected: (_) => ref
                               .read(romsProvider.notifier)
                               .toggleHideUnlicensed(),
+                        ),
+                        FilterChip(
+                          label: const Text('Hide Owned'),
+                          avatar: currentState.hideOwned
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: Colors.white,
+                                )
+                              : null,
+                          selected: currentState.hideOwned,
+                          onSelected: (_) =>
+                              ref.read(romsProvider.notifier).toggleHideOwned(),
+                          selectedColor: Colors.green.withValues(alpha: 0.3),
+                          checkmarkColor: Colors.green,
+                          side: BorderSide(
+                            color: currentState.hideOwned
+                                ? Colors.green
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                        FilterChip(
+                          label: const Text('Hide Similar'),
+                          avatar: currentState.hidePartial
+                              ? const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 16,
+                                  color: Colors.white,
+                                )
+                              : null,
+                          selected: currentState.hidePartial,
+                          onSelected: (_) => ref
+                              .read(romsProvider.notifier)
+                              .toggleHidePartial(),
+                          selectedColor: Colors.blue.withValues(alpha: 0.3),
+                          checkmarkColor: Colors.blue,
+                          side: BorderSide(
+                            color: currentState.hidePartial
+                                ? Colors.blue
+                                : Colors.grey.shade700,
+                          ),
                         ),
                       ],
                     ),
@@ -491,6 +541,42 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                 selected: state.hideUnlicensed,
                 onSelected: (_) =>
                     ref.read(romsProvider.notifier).toggleHideUnlicensed(),
+              ),
+              FilterChip(
+                label: const Text('Hide Owned'),
+                avatar: state.hideOwned
+                    ? const Icon(
+                        Icons.check_circle,
+                        size: 16,
+                        color: Colors.white,
+                      )
+                    : null,
+                selected: state.hideOwned,
+                onSelected: (_) =>
+                    ref.read(romsProvider.notifier).toggleHideOwned(),
+                selectedColor: Colors.green.withValues(alpha: 0.3),
+                checkmarkColor: Colors.green,
+                side: BorderSide(
+                  color: state.hideOwned ? Colors.green : Colors.grey.shade700,
+                ),
+              ),
+              FilterChip(
+                label: const Text('Hide Similar'),
+                avatar: state.hidePartial
+                    ? const Icon(
+                        Icons.check_circle_outline,
+                        size: 16,
+                        color: Colors.white,
+                      )
+                    : null,
+                selected: state.hidePartial,
+                onSelected: (_) =>
+                    ref.read(romsProvider.notifier).toggleHidePartial(),
+                selectedColor: Colors.blue.withValues(alpha: 0.3),
+                checkmarkColor: Colors.blue,
+                side: BorderSide(
+                  color: state.hidePartial ? Colors.blue : Colors.grey.shade700,
+                ),
               ),
             ],
           ),

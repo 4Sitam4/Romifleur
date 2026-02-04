@@ -77,6 +77,22 @@ class DownloadPanel extends ConsumerWidget {
                           style: const TextStyle(fontSize: 14),
                         ),
                       ),
+                      if (state.progress.isDownloading)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.cancel,
+                            color: AppTheme.errorColor,
+                            size: 20,
+                          ),
+                          tooltip: 'Cancel Download',
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            ref
+                                .read(downloadQueueProvider.notifier)
+                                .cancelCurrentDownload();
+                          },
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),

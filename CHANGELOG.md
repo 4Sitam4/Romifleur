@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
   - Tooltips on hover explain each status.
 - **Auto-Refresh**: ROM list updates in real-time after downloads complete (Native).
 - **Server APIs**: New endpoints for folder management and ROM scanning (Docker).
+- **Download Cancellation**: 
+  - Stop ongoing downloads with the Cancel button (❌).
+  - Automatically cleans up partial files (.tmp).
+  - Preserves pending queue items while cancelling the current one.
+- **Ownership Filters**: 
+  - Hide games you already own (Hide Owned 🟢).
+  - Hide similar versions/partial matches (Hide Similar 🔵).
+
 
 ## [3.2.3] - 2026-02-03
 ### Added

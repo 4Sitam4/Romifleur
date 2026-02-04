@@ -8,6 +8,7 @@ import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
+import 'package:romifleur/utils/cancellation_token.dart';
 
 class RomService {
   final ConfigService _configService = ConfigService();
@@ -186,6 +187,7 @@ class RomService {
     String filename, {
     required String saveDir,
     String? customPath,
+    DownloadCancellationToken? cancelToken,
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');
@@ -211,34 +213,83 @@ class RomService {
     }
 
     print('⬇️ Downloading: $downloadUrl to $finalPath');
-    final request = http.Request('GET', Uri.parse(downloadUrl));
-    request.headers.addAll({
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      'Referer': baseUrl,
+
+    final client = http.Client();
+    final file = File('$finalPath.tmp');
+    IOSink? sink;
+
+    // Register cancellation
+    cancelToken?.onCancel(() {
+      print('🚫 Download cancelled: $filename');
+      client.close();
     });
-    final response = await request.send();
-    final totalLength = response.contentLength ?? 0;
-    int received = 0;
 
-    final file = File(finalPath + '.tmp');
-    final sink = file.openWrite();
+    try {
+      final request = http.Request('GET', Uri.parse(downloadUrl));
+      request.headers.addAll({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': baseUrl,
+      });
 
-    await for (final chunk in response.stream) {
-      sink.add(chunk);
-      received += chunk.length;
-      if (totalLength > 0) yield received / totalLength;
+      final response = await client.send(request);
+      final totalLength = response.contentLength ?? 0;
+      int received = 0;
+
+      sink = file.openWrite();
+
+      await for (final chunk in response.stream) {
+        if (cancelToken?.isCancelled ?? false) {
+          throw Exception('Download cancelled');
+        }
+        sink.add(chunk);
+        received += chunk.length;
+        if (totalLength > 0) yield received / totalLength;
+      }
+      await sink.close();
+      sink = null;
+
+      await file.rename(finalPath);
+    } catch (e) {
+      // Cleanup on error or cancellation
+      await sink?.close();
+      if (await file.exists()) {
+        try {
+          await file.delete();
+          print('🗑️ Deleted incomplete file: ${file.path}');
+        } catch (delError) {
+          print('⚠️ Failed to delete incomplete file: $delError');
+        }
+      }
+      if (cancelToken?.isCancelled ?? false) {
+        print('✅ Clean cancellation handled');
+        throw Exception('Download cancelled');
+      }
+      rethrow;
+    } finally {
+      client.close();
     }
-    await sink.close();
-    await file.rename(finalPath);
 
     if (filename.toLowerCase().endsWith('.zip')) {
       yield 1.01;
       try {
+        // We could also pass token to extraction if needed
         await for (final progress in _extractZipStream(finalPath)) {
+          if (cancelToken?.isCancelled ?? false)
+            throw Exception('Cancelled during extraction');
           yield 1.0 + progress;
         }
       } catch (e) {
         print('❌ Extraction stream error: $e');
+        if (cancelToken?.isCancelled ?? false) {
+          // If cancelled during extraction, allow keeping the zip?
+          // User said: "Par contre si un fichier à déjà été décompressé alors il peut rester."
+          // "But if a file has already been decompressed then it can stay."
+          // This might imply keeping partial extraction or keeping the zip.
+          // Usually on extraction cancel, we might want to stop.
+          // We won't delete the zip if extraction fails/cancels, unless it's corrupt.
+          // Logic: Just stop.
+          throw Exception('Download cancelled');
+        }
         rethrow;
       }
     }

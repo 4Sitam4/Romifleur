@@ -64,19 +64,32 @@ class LocalScannerService {
     final remoteWithoutExt = _removeExtension(remoteFilename).toLowerCase();
     final remoteBaseTitle = extractBaseTitle(remoteFilename);
 
+    bool hasPartialMatch = false;
+
+    // First pass: Check for full match (prioritized)
+    // We can do it in one loop if we track partial match but don't return immediately
     for (final localFile in localFiles) {
       final localWithoutExt = _removeExtension(localFile).toLowerCase();
-      final localBaseTitle = extractBaseTitle(localFile);
 
       // Full match: exact filename (ignoring extension)
       if (remoteWithoutExt == localWithoutExt) {
         return OwnershipStatus.fullMatch;
       }
 
-      // Partial match: same base title
-      if (remoteBaseTitle == localBaseTitle) {
-        return OwnershipStatus.partialMatch;
+      // Check for partial match if we haven't found one yet (or just keep scanning)
+      // We only care if we found AT LEAST one partial match
+      if (!hasPartialMatch) {
+        final localBaseTitle = extractBaseTitle(localFile);
+        if (remoteBaseTitle == localBaseTitle) {
+          hasPartialMatch = true;
+        }
       }
+    }
+
+    // If we finished the loop, no full match was found.
+    // Return partial match if found, otherwise not owned.
+    if (hasPartialMatch) {
+      return OwnershipStatus.partialMatch;
     }
 
     return OwnershipStatus.notOwned;

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:romifleur/services/config_service.dart';
+import 'package:romifleur/services/rom_service.dart'; // Base class
+import 'package:romifleur/utils/cancellation_token.dart';
 import 'package:romifleur/models/rom.dart';
 
 // NOTE: Creating specific Logic for Web
@@ -192,7 +195,8 @@ class RomService {
     String consoleKey,
     String filename, {
     required String saveDir,
-    String? customPath, // Handled server-side via console path mapping
+    String? customPath,
+    DownloadCancellationToken? cancelToken,
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');
@@ -200,25 +204,30 @@ class RomService {
     String baseUrl = config['url'];
     if (!baseUrl.endsWith('/')) baseUrl += '/';
 
-    // REVERT Proxy Rewrite for Myrient Download URL
-    // The Backend expects the REAL URL to fetch from, it will handle Referer/Spoofing.
-    // However, our fetchFileList used the proxy URL.
-    // If we reconstructed it from 'config['url']', it might be the real one.
-    // But let's be safe. We need the upstream URL.
+    // Generate simple ID for cancellation
+    final downloadId =
+        '${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(10000)}';
 
-    // Actually, `config['url']` is the raw upstream URL.
-    // IN `fetchFileList`, we modified the URL *before* fetching the list, but we didn't modify `config['url']` itself.
-    // Wait, in `fetchFileList` we did: `String url = config['url']; ... if ... replace`.
-    // So the `config` object is untouched.
-
-    // So `baseUrl` calculated here from `config['url']` is the REAL upstream URL (e.g. myrient.erista.me...).
-    // So we don't need to rewrite it to `/myrient/` for the *backend*.
-    // The backend wants the real "https://..." URL to download from.
+    // Register cancellation
+    cancelToken?.onCancel(() async {
+      print('🚫 WEB Cancelling download: $downloadId');
+      try {
+        await http.post(
+          Uri.parse('/api/cancel'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'id': downloadId}),
+        );
+      } catch (e) {
+        print('⚠️ Failed to send cancel request: $e');
+      }
+    });
 
     final encodedName = Uri.encodeComponent(filename).replaceAll('+', '%20');
     final finalUrl = '$baseUrl$encodedName';
 
-    print('⬇️ WEB Triggering Server-Side Download: $finalUrl');
+    print(
+      '⬇️ WEB Triggering Server-Side Download: $finalUrl (ID: $downloadId)',
+    );
 
     // Call Backend API
     try {
@@ -226,11 +235,16 @@ class RomService {
         Uri.parse('/api/download'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
+          'id': downloadId,
           'url': finalUrl,
           'filename': filename,
           'console': consoleKey, // Use key as subfolder
         }),
       );
+
+      if (cancelToken?.isCancelled ?? false) {
+        throw Exception('Download cancelled');
+      }
 
       if (response.statusCode == 200) {
         print('✅ Server accepted download');
@@ -242,6 +256,9 @@ class RomService {
         );
       }
     } catch (e) {
+      if (cancelToken?.isCancelled ?? false) {
+        throw Exception('Download cancelled');
+      }
       print('❌ Download failed: $e');
       throw Exception('Network Error: $e');
     }
