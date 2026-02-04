@@ -185,6 +185,7 @@ class RomService {
     String consoleKey,
     String filename, {
     required String saveDir,
+    String? customPath,
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');
@@ -193,7 +194,14 @@ class RomService {
     if (!baseUrl.endsWith('/')) baseUrl += '/';
     final encodedName = Uri.encodeComponent(filename).replaceAll('+', '%20');
     final downloadUrl = '$baseUrl$encodedName';
-    final finalPath = p.join(saveDir, config['folder'] ?? consoleKey, filename);
+
+    // Use custom path if provided, otherwise use default folder structure
+    final String finalPath;
+    if (customPath != null && customPath.isNotEmpty) {
+      finalPath = p.join(customPath, filename);
+    } else {
+      finalPath = p.join(saveDir, config['folder'] ?? consoleKey, filename);
+    }
 
     await Directory(p.dirname(finalPath)).create(recursive: true);
 

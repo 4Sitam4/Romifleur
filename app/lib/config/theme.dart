@@ -22,6 +22,7 @@ class AppTheme {
   static const Color textMuted = Color(0xFF6B7280);
 
   static const Color achievementGold = Color(0xFFFFD700);
+  static const Color borderColor = Color(0xFF374151); // Gray border
 
   static ThemeData get darkTheme {
     return ThemeData(

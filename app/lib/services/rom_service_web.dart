@@ -192,6 +192,7 @@ class RomService {
     String consoleKey,
     String filename, {
     required String saveDir,
+    String? customPath, // Handled server-side via console path mapping
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');

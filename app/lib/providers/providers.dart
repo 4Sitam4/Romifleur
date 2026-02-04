@@ -4,8 +4,10 @@ import 'package:romifleur/services/rom_service.dart';
 import 'package:romifleur/services/metadata_service.dart';
 import 'package:romifleur/services/ra_service.dart';
 import 'package:romifleur/services/update_service.dart';
+import 'package:romifleur/services/local_scanner_service.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
+import '../models/ownership_status.dart';
 import '../models/download.dart';
 
 // ===== SERVICE PROVIDERS =====
@@ -16,6 +18,9 @@ final metadataServiceProvider = Provider<MetadataService>(
 );
 final raServiceProvider = Provider<RaService>((ref) => RaService());
 final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
+final localScannerServiceProvider = Provider<LocalScannerService>(
+  (ref) => LocalScannerService(),
+);
 
 // ===== CONSOLES PROVIDER =====
 final consolesProvider = FutureProvider<List<CategoryModel>>((ref) async {
@@ -108,10 +113,17 @@ class RomsState {
 class RomsNotifier extends StateNotifier<RomsState> {
   final RomService romService;
   final RaService raService;
+  final LocalScannerService localScannerService;
+  final ConfigService configService;
   String? _currentCategory;
   String? _currentConsoleKey;
 
-  RomsNotifier(this.romService, this.raService) : super(const RomsState());
+  RomsNotifier(
+    this.romService,
+    this.raService,
+    this.localScannerService,
+    this.configService,
+  ) : super(const RomsState());
 
   Future<void> loadRoms(String category, String consoleKey) async {
     _currentCategory = category;
@@ -156,6 +168,14 @@ class RomsNotifier extends StateNotifier<RomsState> {
           }
         }
         roms = filtered;
+      }
+
+      // 3. Scan for local ROMs and set ownership status
+      try {
+        roms = await _applyOwnershipStatus(roms);
+      } catch (e) {
+        print('⚠️ Ownership scan failed: $e');
+        // Continue without ownership info
       }
 
       state = state.copyWith(roms: roms, isLoading: false);
@@ -231,12 +251,95 @@ class RomsNotifier extends StateNotifier<RomsState> {
   List<RomModel> getSelectedRoms() {
     return state.roms.where((r) => r.isSelected).toList();
   }
+
+  /// Refresh only ownership status without reloading roms
+  Future<void> refreshOwnership() async {
+    if (_currentConsoleKey == null) return;
+    try {
+      final roms = await _applyOwnershipStatus(state.roms);
+      state = state.copyWith(roms: roms);
+    } catch (e) {
+      print('⚠️ Ownership refresh failed: $e');
+    }
+  }
+
+  /// Apply ownership status to ROMs based on local scan
+  Future<List<RomModel>> _applyOwnershipStatus(List<RomModel> roms) async {
+    if (_currentConsoleKey == null) return roms;
+
+    // Get console folder path
+    final consoleConfig = configService.consoles.values
+        .expand((m) => m.entries)
+        .where((e) => e.key == _currentConsoleKey)
+        .firstOrNull;
+
+    final defaultFolder = consoleConfig?.value['folder'] ?? _currentConsoleKey!;
+    final customPath = configService.getConsolePath(_currentConsoleKey!);
+
+    // Determine scan path
+    String scanPath;
+    if (customPath != null && customPath.isNotEmpty) {
+      scanPath = customPath;
+    } else {
+      // For native: use downloadPath + defaultFolder
+      // For web: just send the folder name (server handles it)
+      final downloadPath = await configService.getDownloadPath();
+      if (downloadPath != null) {
+        scanPath = '$downloadPath/$defaultFolder';
+      } else {
+        scanPath = defaultFolder; // Web uses just folder name
+      }
+    }
+
+    // Scan for local ROMs
+    final extensions = [
+      '.zip',
+      '.7z',
+      '.nes',
+      '.sfc',
+      '.smc',
+      '.gba',
+      '.gbc',
+      '.gb',
+      '.nds',
+      '.3ds',
+      '.cia',
+      '.n64',
+      '.z64',
+      '.v64',
+      '.iso',
+      '.bin',
+      '.chd',
+      '.cso',
+      '.pbp',
+      '.gen',
+      '.md',
+      '.smd',
+    ];
+    final localFiles = await localScannerService.scanLocalRoms(
+      scanPath,
+      extensions,
+    );
+
+    if (localFiles.isEmpty) return roms;
+
+    // Apply ownership status to each ROM
+    return roms.map((rom) {
+      final status = localScannerService.checkOwnership(
+        rom.filename,
+        localFiles,
+      );
+      return rom.copyWith(ownershipStatus: status);
+    }).toList();
+  }
 }
 
 final romsProvider = StateNotifierProvider<RomsNotifier, RomsState>((ref) {
   return RomsNotifier(
     ref.watch(romServiceProvider),
     ref.watch(raServiceProvider),
+    ref.watch(localScannerServiceProvider),
+    ref.watch(configServiceProvider),
   );
 });
 
@@ -272,8 +375,9 @@ class DownloadQueueState {
 class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
   final RomService romService;
   final ConfigService configService;
+  final RomsNotifier romsNotifier;
 
-  DownloadQueueNotifier(this.romService, this.configService)
+  DownloadQueueNotifier(this.romService, this.configService, this.romsNotifier)
     : super(const DownloadQueueState());
 
   void addToQueue(String category, String console, List<RomModel> roms) {
@@ -417,11 +521,15 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
       );
 
       try {
+        // Check for custom console path
+        final customPath = configService.getConsolePath(item.console);
+
         final stream = romService.downloadFile(
           item.category,
           item.console,
           item.filename,
           saveDir: saveDir,
+          customPath: customPath,
         );
 
         await for (final fileProgress in stream) {
@@ -487,6 +595,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         isDownloading: false,
       ),
     );
+
+    // Refresh ownership status in ROM list (native only)
+    await romsNotifier.refreshOwnership();
   }
 }
 
@@ -495,5 +606,6 @@ final downloadQueueProvider =
       return DownloadQueueNotifier(
         ref.watch(romServiceProvider),
         ref.watch(configServiceProvider),
+        ref.read(romsProvider.notifier),
       );
     });

@@ -5,6 +5,7 @@ import 'dart:async';
 import '../config/theme.dart';
 import '../providers/providers.dart';
 import '../models/rom.dart';
+import '../models/ownership_status.dart';
 
 class RomListPanel extends ConsumerStatefulWidget {
   const RomListPanel({super.key});
@@ -942,8 +943,34 @@ class _RomListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ownership status styling
+    Color? borderColor;
+    IconData? ownershipIcon;
+    Color? ownershipColor;
+
+    switch (rom.ownershipStatus) {
+      case OwnershipStatus.fullMatch:
+        borderColor = Colors.green;
+        ownershipIcon = Icons.check_circle;
+        ownershipColor = Colors.green;
+        break;
+      case OwnershipStatus.partialMatch:
+        borderColor = Colors.lightBlue;
+        ownershipIcon = Icons.check_circle_outline;
+        ownershipColor = Colors.lightBlue;
+        break;
+      case OwnershipStatus.notOwned:
+        break;
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: borderColor != null
+            ? BorderSide(color: borderColor, width: 2)
+            : BorderSide.none,
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -987,6 +1014,18 @@ class _RomListItem extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // Ownership indicator
+              if (ownershipIcon != null)
+                Tooltip(
+                  message: rom.ownershipStatus == OwnershipStatus.fullMatch
+                      ? 'You own this game'
+                      : 'Similar version owned',
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Icon(ownershipIcon, size: 20, color: ownershipColor),
+                  ),
+                ),
 
               // Achievement badge
               if (rom.hasAchievements)
