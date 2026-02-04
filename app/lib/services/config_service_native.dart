@@ -83,4 +83,49 @@ class ConfigService {
   Map<String, dynamic>? getConsoleConfig(String category, String key) {
     return _consoles[category]?[key];
   }
+
+  // ===== CONSOLE PATH CUSTOMIZATION =====
+
+  /// Get custom path for a console (returns null if using default)
+  String? getConsolePath(String consoleKey) {
+    return _prefs.getString('console_path_$consoleKey');
+  }
+
+  /// Set custom path for a console
+  Future<void> setConsolePath(String consoleKey, String path) async {
+    await _prefs.setString('console_path_$consoleKey', path);
+  }
+
+  /// Clear custom path for a console (reset to default)
+  Future<void> clearConsolePath(String consoleKey) async {
+    await _prefs.remove('console_path_$consoleKey');
+  }
+
+  /// Get all custom console paths (for settings display)
+  Map<String, String> getAllConsolePaths() {
+    final Map<String, String> paths = {};
+    final keys = _prefs.getKeys();
+    for (final key in keys) {
+      if (key.startsWith('console_path_')) {
+        final consoleKey = key.replaceFirst('console_path_', '');
+        final value = _prefs.getString(key);
+        if (value != null) {
+          paths[consoleKey] = value;
+        }
+      }
+    }
+    return paths;
+  }
+
+  /// List available folders (Web only - stub for native)
+  Future<List<String>> listAvailableFolders() async {
+    // Native uses file picker, not folder list
+    return [];
+  }
+
+  /// Create a new folder (Web only - stub for native)
+  Future<bool> createFolder(String folderName) async {
+    // Native uses file picker to select/create folders
+    return false;
+  }
 }

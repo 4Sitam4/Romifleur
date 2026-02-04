@@ -4,8 +4,11 @@ import 'package:romifleur/services/rom_service.dart';
 import 'package:romifleur/services/metadata_service.dart';
 import 'package:romifleur/services/ra_service.dart';
 import 'package:romifleur/services/update_service.dart';
+import 'package:romifleur/services/local_scanner_service.dart';
+import 'package:romifleur/utils/cancellation_token.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
+import '../models/ownership_status.dart';
 import '../models/download.dart';
 
 // ===== SERVICE PROVIDERS =====
@@ -16,6 +19,9 @@ final metadataServiceProvider = Provider<MetadataService>(
 );
 final raServiceProvider = Provider<RaService>((ref) => RaService());
 final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
+final localScannerServiceProvider = Provider<LocalScannerService>(
+  (ref) => LocalScannerService(),
+);
 
 // ===== CONSOLES PROVIDER =====
 final consolesProvider = FutureProvider<List<CategoryModel>>((ref) async {
@@ -62,6 +68,8 @@ class RomsState {
   final bool hideBetas;
   final bool hideUnlicensed;
   final bool onlyRa;
+  final bool hideOwned;
+  final bool hidePartial;
 
   const RomsState({
     this.roms = const [],
@@ -74,6 +82,8 @@ class RomsState {
     this.hideBetas = true,
     this.hideUnlicensed = true,
     this.onlyRa = false,
+    this.hideOwned = false,
+    this.hidePartial = false,
   });
 
   RomsState copyWith({
@@ -87,6 +97,8 @@ class RomsState {
     bool? hideBetas,
     bool? hideUnlicensed,
     bool? onlyRa,
+    bool? hideOwned,
+    bool? hidePartial,
   }) {
     return RomsState(
       roms: roms ?? this.roms,
@@ -99,6 +111,8 @@ class RomsState {
       hideBetas: hideBetas ?? this.hideBetas,
       hideUnlicensed: hideUnlicensed ?? this.hideUnlicensed,
       onlyRa: onlyRa ?? this.onlyRa,
+      hideOwned: hideOwned ?? this.hideOwned,
+      hidePartial: hidePartial ?? this.hidePartial,
     );
   }
 
@@ -108,10 +122,17 @@ class RomsState {
 class RomsNotifier extends StateNotifier<RomsState> {
   final RomService romService;
   final RaService raService;
+  final LocalScannerService localScannerService;
+  final ConfigService configService;
   String? _currentCategory;
   String? _currentConsoleKey;
 
-  RomsNotifier(this.romService, this.raService) : super(const RomsState());
+  RomsNotifier(
+    this.romService,
+    this.raService,
+    this.localScannerService,
+    this.configService,
+  ) : super(const RomsState());
 
   Future<void> loadRoms(String category, String consoleKey) async {
     _currentCategory = category;
@@ -158,6 +179,28 @@ class RomsNotifier extends StateNotifier<RomsState> {
         roms = filtered;
       }
 
+      // 3. Scan for local ROMs and set ownership status
+      try {
+        roms = await _applyOwnershipStatus(roms);
+
+        // 4. Filter by Ownership Logic (Client-side)
+        if (state.hideOwned || state.hidePartial) {
+          // Optimization check
+          roms = roms.where((rom) {
+            if (state.hideOwned &&
+                rom.ownershipStatus == OwnershipStatus.fullMatch)
+              return false;
+            if (state.hidePartial &&
+                rom.ownershipStatus == OwnershipStatus.partialMatch)
+              return false;
+            return true;
+          }).toList();
+        }
+      } catch (e) {
+        print('⚠️ Ownership scan failed: $e');
+        // Continue without ownership info
+      }
+
       state = state.copyWith(roms: roms, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -200,6 +243,16 @@ class RomsNotifier extends StateNotifier<RomsState> {
     _refresh();
   }
 
+  void toggleHideOwned() {
+    state = state.copyWith(hideOwned: !state.hideOwned);
+    _refresh();
+  }
+
+  void toggleHidePartial() {
+    state = state.copyWith(hidePartial: !state.hidePartial);
+    _refresh();
+  }
+
   void toggleLanguage(String language) {
     final languages = Set<String>.from(state.selectedLanguages);
     if (languages.contains(language)) {
@@ -231,12 +284,95 @@ class RomsNotifier extends StateNotifier<RomsState> {
   List<RomModel> getSelectedRoms() {
     return state.roms.where((r) => r.isSelected).toList();
   }
+
+  /// Refresh only ownership status without reloading roms
+  Future<void> refreshOwnership() async {
+    if (_currentConsoleKey == null) return;
+    try {
+      final roms = await _applyOwnershipStatus(state.roms);
+      state = state.copyWith(roms: roms);
+    } catch (e) {
+      print('⚠️ Ownership refresh failed: $e');
+    }
+  }
+
+  /// Apply ownership status to ROMs based on local scan
+  Future<List<RomModel>> _applyOwnershipStatus(List<RomModel> roms) async {
+    if (_currentConsoleKey == null) return roms;
+
+    // Get console folder path
+    final consoleConfig = configService.consoles.values
+        .expand((m) => m.entries)
+        .where((e) => e.key == _currentConsoleKey)
+        .firstOrNull;
+
+    final defaultFolder = consoleConfig?.value['folder'] ?? _currentConsoleKey!;
+    final customPath = configService.getConsolePath(_currentConsoleKey!);
+
+    // Determine scan path
+    String scanPath;
+    if (customPath != null && customPath.isNotEmpty) {
+      scanPath = customPath;
+    } else {
+      // For native: use downloadPath + defaultFolder
+      // For web: just send the folder name (server handles it)
+      final downloadPath = await configService.getDownloadPath();
+      if (downloadPath != null) {
+        scanPath = '$downloadPath/$defaultFolder';
+      } else {
+        scanPath = defaultFolder; // Web uses just folder name
+      }
+    }
+
+    // Scan for local ROMs
+    final extensions = [
+      '.zip',
+      '.7z',
+      '.nes',
+      '.sfc',
+      '.smc',
+      '.gba',
+      '.gbc',
+      '.gb',
+      '.nds',
+      '.3ds',
+      '.cia',
+      '.n64',
+      '.z64',
+      '.v64',
+      '.iso',
+      '.bin',
+      '.chd',
+      '.cso',
+      '.pbp',
+      '.gen',
+      '.md',
+      '.smd',
+    ];
+    final localFiles = await localScannerService.scanLocalRoms(
+      scanPath,
+      extensions,
+    );
+
+    if (localFiles.isEmpty) return roms;
+
+    // Apply ownership status to each ROM
+    return roms.map((rom) {
+      final status = localScannerService.checkOwnership(
+        rom.filename,
+        localFiles,
+      );
+      return rom.copyWith(ownershipStatus: status);
+    }).toList();
+  }
 }
 
 final romsProvider = StateNotifierProvider<RomsNotifier, RomsState>((ref) {
   return RomsNotifier(
     ref.watch(romServiceProvider),
     ref.watch(raServiceProvider),
+    ref.watch(localScannerServiceProvider),
+    ref.watch(configServiceProvider),
   );
 });
 
@@ -272,12 +408,26 @@ class DownloadQueueState {
 class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
   final RomService romService;
   final ConfigService configService;
+  final RomsNotifier romsNotifier;
+  DownloadCancellationToken? _cancelToken;
 
-  DownloadQueueNotifier(this.romService, this.configService)
+  DownloadQueueNotifier(this.romService, this.configService, this.romsNotifier)
     : super(const DownloadQueueState());
+
+  void cancelCurrentDownload() {
+    _cancelToken?.cancel();
+    _cancelToken = null;
+  }
 
   void addToQueue(String category, String console, List<RomModel> roms) {
     if (roms.isEmpty) return;
+
+    // User Requirement: Block adding while downloading
+    if (state.progress.isDownloading || state.isLoading) {
+      // In a real app we'd show a Toast. Here we just return.
+      // The UI buttons will be disabled anyway.
+      return;
+    }
 
     final currentItems = List<DownloadItem>.from(state.items);
     double currentBytes = _parseSizeToBytes(state.totalSize);
@@ -400,93 +550,119 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     }
 
     int processedCount = 0;
+    _cancelToken = DownloadCancellationToken();
 
-    for (var item in itemsToDownload) {
-      processedCount++;
+    try {
+      for (var item in itemsToDownload) {
+        if (_cancelToken?.isCancelled ?? false) break;
 
-      // Update Status
-      state = state.copyWith(
-        progress: DownloadProgress(
-          current: processedCount,
-          total: totalCount,
-          currentFile: item.filename,
-          status: 'Downloading...',
-          percentage: ((processedCount - 1) / totalCount) * 100,
-          isDownloading: true,
-        ),
-      );
+        processedCount++;
 
-      try {
-        final stream = romService.downloadFile(
-          item.category,
-          item.console,
-          item.filename,
-          saveDir: saveDir,
-        );
-
-        await for (final fileProgress in stream) {
-          // Calculate smooth percentage
-          // Weight: Download = 90%, Extraction = 10%
-          double normalizedProgress;
-          if (fileProgress <= 1.0) {
-            normalizedProgress = fileProgress * 0.9;
-          } else {
-            normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
-          }
-
-          final double itemContribution = 1.0 / totalCount;
-          final double currentBase = (processedCount - 1) / totalCount;
-          final double actual =
-              (currentBase + (itemContribution * normalizedProgress)) * 100;
-
-          state = state.copyWith(
-            progress: DownloadProgress(
-              current: processedCount,
-              total: totalCount,
-              currentFile: item.filename,
-              status: fileProgress > 1.0
-                  // Show Extracting % based on the 1.0-2.0 range
-                  ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
-                  : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
-              percentage: actual,
-              isDownloading: true,
-            ),
-          );
-        }
-      } catch (e) {
-        print('Download Error: $e');
         state = state.copyWith(
           progress: DownloadProgress(
             current: processedCount,
             total: totalCount,
             currentFile: item.filename,
-            status: 'Error: $e',
+            status: 'Downloading...',
+            percentage: ((processedCount - 1) / totalCount) * 100,
             isDownloading: true,
           ),
         );
-        await Future.delayed(const Duration(milliseconds: 500));
+
+        try {
+          final customPath = configService.getConsolePath(item.console);
+
+          final stream = romService.downloadFile(
+            item.category,
+            item.console,
+            item.filename,
+            saveDir: saveDir,
+            customPath: customPath,
+            cancelToken: _cancelToken,
+          );
+
+          await for (final fileProgress in stream) {
+            if (_cancelToken?.isCancelled ?? false) {
+              throw Exception('Download cancelled');
+            }
+
+            double normalizedProgress;
+            if (fileProgress <= 1.0) {
+              normalizedProgress = fileProgress * 0.9;
+            } else {
+              normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
+            }
+
+            final double itemContribution = 1.0 / totalCount;
+            final double currentBase = (processedCount - 1) / totalCount;
+            final double actual =
+                (currentBase + (itemContribution * normalizedProgress)) * 100;
+
+            state = state.copyWith(
+              progress: state.progress.copyWith(
+                current: processedCount,
+                total: totalCount,
+                currentFile: item.filename,
+                status: fileProgress > 1.0
+                    ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
+                    : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
+                percentage: actual,
+                isDownloading: true,
+              ),
+            );
+          }
+
+          // SUCCESS: Remove item and update total size
+          final updatedItems = List<DownloadItem>.from(state.items);
+          final indexToRemove = updatedItems.indexWhere(
+            (i) => i.filename == item.filename && i.console == item.console,
+          );
+
+          if (indexToRemove != -1) {
+            final removed = updatedItems.removeAt(indexToRemove);
+            double currentBytes = _parseSizeToBytes(state.totalSize);
+            currentBytes -= _parseSizeToBytes(removed.size);
+            if (currentBytes < 0) currentBytes = 0;
+
+            state = state.copyWith(
+              items: updatedItems,
+              totalSize: _formatBytes(currentBytes),
+            );
+          }
+        } catch (e) {
+          if ((e.toString().contains('cancelled'))) {
+            print('🚫 Download Cancelled: ${item.filename}');
+            // Loop will break via token check or return here
+            _cancelToken = null;
+            break;
+          }
+
+          print('Download Error: $e');
+          state = state.copyWith(
+            progress: state.progress.copyWith(
+              status: 'Error: $e',
+              isDownloading: true,
+            ),
+          );
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       }
+    } finally {
+      _cancelToken = null;
 
-      // Remove from queue as done (optional, but requested by user flow usually)
-      // Actually, typical download managers keep list until cleared.
-      // But for "Queue" typically it consumes items.
-      // Let's remove this item from the list to show it's done?
-      // Or keep it. Python backend kept it.
-      // The UI usually shows the list. If we remove it, it disappears.
-      // Let's keep it in list, but user can clear completed.
+      // Refesh ownership ALWAYS (even if cancelled)
+      await romsNotifier.refreshOwnership();
+
+      state = state.copyWith(
+        isLoading: false,
+        // items: state.items, // Preserved
+        progress: state.progress.copyWith(
+          isDownloading: false,
+          status: state.items.isEmpty ? 'All Done!' : 'Stopped',
+          // If stopped, keep last percentage? Or reset?
+        ),
+      );
     }
-
-    state = state.copyWith(
-      isLoading: false,
-      items: [], // Clear queue on completion
-      progress: DownloadProgress(
-        current: totalCount,
-        total: totalCount,
-        percentage: 100,
-        status: 'All Done!',
-        isDownloading: false,
-      ),
-    );
   }
 }
 
@@ -495,5 +671,6 @@ final downloadQueueProvider =
       return DownloadQueueNotifier(
         ref.watch(romServiceProvider),
         ref.watch(configServiceProvider),
+        ref.read(romsProvider.notifier),
       );
     });

@@ -57,4 +57,21 @@ class DownloadProgress {
       isDownloading: json['is_downloading'] ?? false,
     );
   }
+  DownloadProgress copyWith({
+    int? current,
+    int? total,
+    String? currentFile,
+    String? status,
+    double? percentage,
+    bool? isDownloading,
+  }) {
+    return DownloadProgress(
+      current: current ?? this.current,
+      total: total ?? this.total,
+      currentFile: currentFile ?? this.currentFile,
+      status: status ?? this.status,
+      percentage: percentage ?? this.percentage,
+      isDownloading: isDownloading ?? this.isDownloading,
+    );
+  }
 }

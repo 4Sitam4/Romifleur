@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.0] - 2026-02-04
+### Added
+- **Custom Console Folders** (Issue #11): Assign unique download folders per console.
+  - Native: Browse button to select any folder on your system.
+  - Web/Docker: Dropdown to select or create folders in the mounted volume.
+  - Settings > Console Folders section with expandable list.
+- **ROM Ownership Scanning** (Issue #11): Automatically detects ROMs you already own.
+  - 🟢 Green border + checkmark = Exact match (same filename).
+  - 🔵 Blue border + checkmark = Partial match (same game, different version).
+  - Tooltips on hover explain each status.
+- **Auto-Refresh**: ROM list updates in real-time after downloads complete (Native).
+- **Server APIs**: New endpoints for folder management and ROM scanning (Docker).
+- **Download Cancellation**: 
+  - Stop ongoing downloads with the Cancel button (❌).
+  - Automatically cleans up partial files (.tmp).
+  - Preserves pending queue items while cancelling the current one.
+- **Ownership Filters**: 
+  - Hide games you already own (Hide Owned 🟢).
+  - Hide similar versions/partial matches (Hide Similar 🔵).
+
+
 ## [3.2.3] - 2026-02-03
 ### Added
 - **Update Checker**: Automatically notifies users when a new version of Romifleur is available.

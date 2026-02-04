@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 // No dart:io or path_provider imports here
 
@@ -64,5 +65,100 @@ class ConfigService {
 
   Map<String, dynamic>? getConsoleConfig(String category, String key) {
     return _consoles[category]?[key];
+  }
+
+  // ===== CONSOLE PATH CUSTOMIZATION (Web - Server API) =====
+
+  // Cache for console paths from server
+  Map<String, String> _consolePaths = {};
+  List<String> _availableFolders = [];
+  bool _pathsLoaded = false;
+
+  /// Fetch console-folder mappings from server
+  Future<void> _loadConsolePaths() async {
+    if (_pathsLoaded) return;
+    try {
+      final response = await http.get(Uri.parse('/api/console-paths'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        _consolePaths = data.map((k, v) => MapEntry(k, v.toString()));
+        _pathsLoaded = true;
+      }
+    } catch (e) {
+      print('❌ Error loading console paths: $e');
+    }
+  }
+
+  /// Get custom folder for a console (returns null if using default)
+  String? getConsolePath(String consoleKey) {
+    return _consolePaths[consoleKey];
+  }
+
+  /// Set custom folder for a console (calls server API)
+  Future<void> setConsolePath(String consoleKey, String folderName) async {
+    try {
+      final response = await http.post(
+        Uri.parse('/api/console-paths'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'console': consoleKey, 'folder': folderName}),
+      );
+      if (response.statusCode == 200) {
+        _consolePaths[consoleKey] = folderName;
+      }
+    } catch (e) {
+      print('❌ Error setting console path: $e');
+    }
+  }
+
+  /// Clear custom folder for a console (reset to default)
+  Future<void> clearConsolePath(String consoleKey) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('/api/console-paths/$consoleKey'),
+      );
+      if (response.statusCode == 200) {
+        _consolePaths.remove(consoleKey);
+      }
+    } catch (e) {
+      print('❌ Error clearing console path: $e');
+    }
+  }
+
+  /// Get all custom console paths
+  Map<String, String> getAllConsolePaths() {
+    return Map.from(_consolePaths);
+  }
+
+  /// List available folders in the download directory
+  Future<List<String>> listAvailableFolders() async {
+    try {
+      final response = await http.get(Uri.parse('/api/folders'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        _availableFolders = data.map((e) => e.toString()).toList();
+        return _availableFolders;
+      }
+    } catch (e) {
+      print('❌ Error listing folders: $e');
+    }
+    return [];
+  }
+
+  /// Create a new folder on the server
+  Future<bool> createFolder(String folderName) async {
+    try {
+      final response = await http.post(
+        Uri.parse('/api/folders'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': folderName}),
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _availableFolders.add(folderName);
+        return true;
+      }
+    } catch (e) {
+      print('❌ Error creating folder: $e');
+    }
+    return false;
   }
 }
