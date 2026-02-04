@@ -63,6 +63,28 @@ class ConfigService {
     await _prefs.setString(_kRaApiKey, key);
   }
 
+  // ===== SAF / STORAGE METHODS (Stubs for Web) =====
+
+  bool isSafUri(String? pathOrUri) {
+    return false; // Web doesn't use SAF
+  }
+
+  Future<String?> getDownloadUri() async {
+    return null;
+  }
+
+  Future<void> setDownloadUri(String uri) async {
+    // No-op
+  }
+
+  Future<void> clearDownloadUri() async {
+    // No-op
+  }
+
+  Future<String?> getEffectiveDownloadLocation() async {
+    return getDownloadPath();
+  }
+
   Map<String, dynamic>? getConsoleConfig(String category, String key) {
     return _consoles[category]?[key];
   }

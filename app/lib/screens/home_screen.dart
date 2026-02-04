@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:saf_util/saf_util.dart';
+import '../utils/saf_helper.dart'; // Conditional import for Web compatibility
 import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers/providers.dart';
