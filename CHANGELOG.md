@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.1] - 2026-02-04
+### Fixed
+- **Out of Memory on Large ROMs (Issue #45)**: Fixed extraction crash on files 600MB+ by switching to streaming extraction (`extractFileToDisk`). Affects both Native and Docker/Web versions.
+
 ## [3.3.0] - 2026-02-04
 ### Added
 - **Custom Console Folders** (Issue #11): Assign unique download folders per console.

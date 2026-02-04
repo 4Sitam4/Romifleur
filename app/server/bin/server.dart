@@ -6,7 +6,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 
 // Configuration
 const int _port = 8080;
@@ -354,19 +354,10 @@ Future<Response> _downloadHandler(Request request) async {
       if (filename.toLowerCase().endsWith('.zip')) {
         print('📦 Extracting ${file.path}...');
         try {
-          final bytes = await file.readAsBytes();
-          final archive = ZipDecoder().decodeBytes(bytes);
+          // Use extractFileToDisk for memory-efficient streaming extraction
+          // This processes file-by-file without loading entire archive into RAM
+          extractFileToDisk(file.path, saveDir.path);
 
-          for (final entity in archive) {
-            final extractFilename = entity.name;
-            if (entity.isFile) {
-              final data = entity.content as List<int>;
-              final outFile = File(p.join(saveDir.path, extractFilename));
-              await outFile.create(recursive: true);
-              await outFile.writeAsBytes(data);
-              print('  - Extracted: $extractFilename');
-            }
-          }
           print('✅ Extraction Complete');
           try {
             await file.delete();

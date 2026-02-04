@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:romifleur/services/config_service.dart';
-import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
@@ -299,27 +298,18 @@ class RomService {
   Stream<double> _extractZipStream(String zipPath) async* {
     try {
       final dir = p.dirname(zipPath);
-      final inputStream = InputFileStream(zipPath);
-      final archive = ZipDecoder().decodeBuffer(inputStream);
-      final totalFiles = archive.files.where((f) => f.isFile).length;
-      int processed = 0;
 
-      for (var file in archive.files) {
-        if (file.isFile) {
-          final filePath = p.join(dir, file.name);
-          Directory(p.dirname(filePath)).createSync(recursive: true);
-          final outputStream = OutputFileStream(filePath);
-          file.writeContent(outputStream);
-          outputStream.close();
-          processed++;
-          yield processed / totalFiles;
-        }
-      }
-      inputStream.close();
+      // Use extractFileToDisk for memory-efficient streaming extraction
+      // This processes file-by-file without loading entire archive into RAM
+      extractFileToDisk(zipPath, dir);
+
+      yield 1.0; // Extraction complete
+
+      // Delete zip after successful extraction
       await File(zipPath).delete();
     } catch (e) {
       print('⚠️ Extraction failed: $e');
-      throw e;
+      rethrow;
     }
   }
 }
