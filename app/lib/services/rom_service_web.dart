@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:romifleur/services/config_service.dart';
-import 'package:romifleur/services/rom_service.dart'; // Base class
 import 'package:romifleur/utils/cancellation_token.dart';
 import 'package:romifleur/models/rom.dart';
 

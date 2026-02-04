@@ -75,7 +75,7 @@ class ConfigService {
   bool _pathsLoaded = false;
 
   /// Fetch console-folder mappings from server
-  Future<void> _loadConsolePaths() async {
+  Future<void> _ensurePathsLoaded() async {
     if (_pathsLoaded) return;
     try {
       final response = await http.get(Uri.parse('/api/console-paths'));
@@ -91,6 +91,8 @@ class ConfigService {
 
   /// Get custom folder for a console (returns null if using default)
   String? getConsolePath(String consoleKey) {
+    // Trigger async load if not loaded yet (will be empty on first call)
+    if (!_pathsLoaded) _ensurePathsLoaded();
     return _consolePaths[consoleKey];
   }
 

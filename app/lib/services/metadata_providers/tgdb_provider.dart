@@ -55,9 +55,9 @@ class TgdbProvider implements MetadataProvider {
                   imageUrl = "$baseUrl${art['filename']}";
 
                   // Handle proxy rewrite for Web if needed
-                  if (_baseUrl.startsWith('/tgdb') && imageUrl != null) {
-                    if (imageUrl!.contains('cdn.thegamesdb.net')) {
-                      imageUrl = imageUrl!.replaceFirst(
+                  if (_baseUrl.startsWith('/tgdb')) {
+                    if (imageUrl.contains('cdn.thegamesdb.net')) {
+                      imageUrl = imageUrl.replaceFirst(
                         'https://cdn.thegamesdb.net',
                         '/tgdb-cdn',
                       );

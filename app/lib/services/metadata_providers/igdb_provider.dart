@@ -95,7 +95,7 @@ limit 1;
           String? imageUrl;
           if (game['cover'] != null && game['cover']['url'] != null) {
             imageUrl = "https:${game['cover']['url']}";
-            imageUrl = imageUrl?.replaceAll('t_thumb', 't_cover_big');
+            imageUrl = imageUrl.replaceAll('t_thumb', 't_cover_big');
           }
 
           String? dateStr;

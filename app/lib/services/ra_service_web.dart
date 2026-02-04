@@ -5,7 +5,7 @@ import 'package:romifleur/services/config_service.dart';
 // No dart:io
 
 class RaService {
-  static const String _baseUrl = "https://retroachievements.org/API";
+  // API calls go through nginx proxy at /ra/
 
   final ConfigService _config = ConfigService();
   Map<String, List<dynamic>> _cache = {}; // ConsoleID -> List of Games
