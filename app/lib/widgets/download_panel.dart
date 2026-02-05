@@ -119,6 +119,18 @@ class DownloadPanel extends ConsumerWidget {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
+                  if (state.progress.speed.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '${state.progress.speed}  •  ${state.progress.eta} remaining',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

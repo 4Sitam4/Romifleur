@@ -12,6 +12,18 @@ import 'package:romifleur/utils/cancellation_token.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
+class DownloadProgressEvent {
+  final double progress; // 0.0 to 1.0 (or > 1.0 for extraction)
+  final int receivedBytes;
+  final int totalBytes;
+
+  const DownloadProgressEvent({
+    required this.progress,
+    required this.receivedBytes,
+    required this.totalBytes,
+  });
+}
+
 class RomService {
   final ConfigService _configService = ConfigService();
   final Map<String, List<RomModel>> _cache = {};
@@ -183,7 +195,7 @@ class RomService {
     return filtered;
   }
 
-  Stream<double> downloadFile(
+  Stream<DownloadProgressEvent> downloadFile(
     String category,
     String consoleKey,
     String filename, {
@@ -248,7 +260,11 @@ class RomService {
         await Directory(p.dirname(finalPath)).create(recursive: true);
 
         if (await File(finalPath).exists()) {
-          yield 1.0;
+          yield DownloadProgressEvent(
+            progress: 1.0,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          );
           return;
         }
 
@@ -264,7 +280,12 @@ class RomService {
             }
             sink.add(chunk);
             received += chunk.length;
-            if (totalLength > 0) yield received / totalLength;
+            if (totalLength > 0)
+              yield DownloadProgressEvent(
+                progress: received / totalLength,
+                receivedBytes: received,
+                totalBytes: totalLength,
+              );
           }
           await sink.close();
           sink = null;
@@ -285,12 +306,20 @@ class RomService {
 
         // Handle zip extraction for regular paths
         if (filename.toLowerCase().endsWith('.zip')) {
-          yield 1.01;
+          yield DownloadProgressEvent(
+            progress: 1.01,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          );
           try {
             await for (final progress in _extractZipStream(finalPath)) {
               if (cancelToken?.isCancelled ?? false)
                 throw Exception('Cancelled during extraction');
-              yield 1.0 + progress;
+              yield DownloadProgressEvent(
+                progress: 1.0 + progress,
+                receivedBytes: totalLength,
+                totalBytes: totalLength,
+              );
             }
           } catch (e) {
             print('⚠️ Extraction failed: $e');
@@ -355,7 +384,7 @@ class RomService {
 
   /// Download using SAF for Android SD card access
   /// For ZIPs: download to temp, extract, paste to SAF
-  Stream<double> _downloadWithSaf(
+  Stream<DownloadProgressEvent> _downloadWithSaf(
     Stream<List<int>> responseStream,
     String safDirUri,
     String subFolder,
@@ -393,17 +422,28 @@ class RomService {
             }
             sink.add(chunk);
             received += chunk.length;
-            if (totalLength > 0) yield received / totalLength * 0.8; // 0-80%
+            if (totalLength > 0)
+              yield DownloadProgressEvent(
+                progress: received / totalLength * 0.8,
+                receivedBytes: received,
+                totalBytes: totalLength,
+              ); // 0-80%
           }
           await sink.close();
 
           print('✅ ZIP downloaded to temp: $tempZipPath');
-          yield 0.8; // 80% - download complete
+          yield DownloadProgressEvent(
+              progress: 0.8,
+              receivedBytes: totalLength,
+              totalBytes: totalLength); // 80% - download complete
 
           // Extract ZIP locally
           extractFileToDisk(tempZipPath, tempDir.path);
           print('✅ ZIP extracted locally');
-          yield 0.9; // 90% - extraction complete
+          yield DownloadProgressEvent(
+              progress: 0.9,
+              receivedBytes: totalLength,
+              totalBytes: totalLength); // 90% - extraction complete
 
           // Delete the ZIP file from temp
           await tempFile.delete();
@@ -457,14 +497,21 @@ class RomService {
               }
 
               fileIndex++;
-              yield 0.9 + (0.1 * fileIndex / totalFiles); // 90-100%
+              yield DownloadProgressEvent(
+                progress: 0.9 + (0.1 * fileIndex / totalFiles),
+                receivedBytes: totalLength,
+                totalBytes: totalLength,
+              ); // 90-100%
             }
           }
 
           // Cleanup temp directory
           await tempDir.delete(recursive: true);
           print('✅ SAF extraction complete, temp cleaned up');
-          yield 1.0;
+          yield DownloadProgressEvent(
+              progress: 1.0,
+              receivedBytes: totalLength,
+              totalBytes: totalLength);
         } catch (e) {
           // Cleanup temp on error
           try {
@@ -494,7 +541,12 @@ class RomService {
             }
             await safStream.writeChunk(sessionId, Uint8List.fromList(chunk));
             received += chunk.length;
-            if (totalLength > 0) yield received / totalLength;
+            if (totalLength > 0)
+              yield DownloadProgressEvent(
+                progress: received / totalLength,
+                receivedBytes: received,
+                totalBytes: totalLength,
+              );
           }
 
           // End write stream
@@ -502,7 +554,10 @@ class RomService {
           sessionId = null;
 
           print('✅ SAF download complete: $filename');
-          yield 1.0;
+          yield DownloadProgressEvent(
+              progress: 1.0,
+              receivedBytes: totalLength,
+              totalBytes: totalLength);
         } catch (e) {
           // Try to clean up session if it was started
           if (sessionId != null) {

@@ -571,11 +571,22 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     int processedCount = 0;
     _cancelToken = DownloadCancellationToken();
 
+    // Speed Calculation State
+    DateTime? _lastSpeedUpdate;
+    int _lastBytesReceived = 0;
+    double _currentSpeed = 0;
+    final List<double> _speedBuffer = [];
+    const int _bufferSize = 25; // Store last 25 samples for smoothing
+
     try {
       for (var item in itemsToDownload) {
         if (_cancelToken?.isCancelled ?? false) break;
 
         processedCount++;
+        _lastSpeedUpdate = null;
+        _lastBytesReceived = 0;
+        _currentSpeed = 0;
+        _speedBuffer.clear();
 
         state = state.copyWith(
           progress: DownloadProgress(
@@ -600,16 +611,64 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             cancelToken: _cancelToken,
           );
 
-          await for (final fileProgress in stream) {
+          await for (final event in stream) {
             if (_cancelToken?.isCancelled ?? false) {
               throw Exception('Download cancelled');
+            }
+
+            final fileProgress = event.progress;
+
+            // Speed & ETA Calculation (Throttle updates to ~1s)
+            final now = DateTime.now();
+            if (_lastSpeedUpdate == null ||
+                now.difference(_lastSpeedUpdate).inMilliseconds > 1000) {
+              if (_lastSpeedUpdate != null) {
+                final duration =
+                    now.difference(_lastSpeedUpdate).inMilliseconds / 1000.0;
+                final bytesDiff = event.receivedBytes - _lastBytesReceived;
+                if (duration > 0) {
+                  final instantSpeed = bytesDiff / duration;
+                  
+                  // SMA Smoothing: Average of last N samples
+                  _speedBuffer.add(instantSpeed);
+                  if (_speedBuffer.length > _bufferSize) {
+                    _speedBuffer.removeAt(0);
+                  }
+                  
+                  if (_speedBuffer.isNotEmpty) {
+                    _currentSpeed = _speedBuffer.reduce((a, b) => a + b) / 
+                                   _speedBuffer.length;
+                  }
+                }
+              }
+              _lastSpeedUpdate = now;
+              _lastBytesReceived = event.receivedBytes;
+            }
+
+            String speedStr = '';
+            String etaStr = '';
+
+            if (fileProgress < 1.0 && _currentSpeed > 0) {
+              final remainingBytes = event.totalBytes - event.receivedBytes;
+              final secondsLeft = remainingBytes / _currentSpeed;
+              speedStr = '${_formatBytes(_currentSpeed)}/s';
+              if (secondsLeft < 60) {
+                etaStr = '${secondsLeft.toInt()}s';
+              } else {
+                final minutes = (secondsLeft / 60).toInt();
+                final seconds = (secondsLeft % 60).toInt();
+                etaStr = '${minutes}m ${seconds}s';
+              }
             }
 
             double normalizedProgress;
             if (fileProgress <= 1.0) {
               normalizedProgress = fileProgress * 0.9;
             } else {
+              // Extraction phase (progress > 1.0)
               normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
+              speedStr = 'Extracting...';
+              etaStr = '';
             }
 
             final double itemContribution = 1.0 / totalCount;
@@ -617,29 +676,45 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             final double actual =
                 (currentBase + (itemContribution * normalizedProgress)) * 100;
 
-            // Update notification
-            final int currentPercent = actual.toInt();
-            if (currentPercent != _lastPercentage) {
-              _lastPercentage = currentPercent;
-              backgroundService.showProgress(
-                fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
-                currentPercent,
-                100,
+            // Update UI/Notification (Throttle to match speed calc)
+            // Update if:
+            // 1. Download complete (progress >= 1.0)
+            // 2. Speed was just updated (within last 100ms) - this syncs UI with speed calc
+            // 3. First update (_lastSpeedUpdate is null)
+            if (fileProgress >= 1.0 ||
+                _lastSpeedUpdate == null ||
+                now.difference(_lastSpeedUpdate).inMilliseconds < 100) {
+              
+              // Notification
+              final int currentPercent = actual.toInt();
+              if (currentPercent != _lastPercentage || now.second % 5 == 0) {
+                 _lastPercentage = currentPercent;
+                backgroundService.showProgress(
+                  fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
+                  currentPercent,
+                  100,
+                  subtext: fileProgress > 1.0
+                      ? null
+                      : '$speedStr - $etaStr remaining',
+                );
+              }
+
+              // State (UI)
+              state = state.copyWith(
+                progress: state.progress.copyWith(
+                  current: processedCount,
+                  total: totalCount,
+                  currentFile: item.filename,
+                  status: fileProgress > 1.0
+                      ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
+                      : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
+                  percentage: actual,
+                  isDownloading: true,
+                  speed: speedStr,
+                  eta: etaStr,
+                ),
               );
             }
-
-            state = state.copyWith(
-              progress: state.progress.copyWith(
-                current: processedCount,
-                total: totalCount,
-                currentFile: item.filename,
-                status: fileProgress > 1.0
-                    ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
-                    : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
-                percentage: actual,
-                isDownloading: true,
-              ),
-            );
           }
 
           // SUCCESS: Remove item and update total size
@@ -672,6 +747,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             progress: state.progress.copyWith(
               status: 'Error: $e',
               isDownloading: true,
+              speed: '',
+              eta: '',
             ),
           );
           await Future.delayed(const Duration(milliseconds: 500));
@@ -692,7 +769,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         progress: state.progress.copyWith(
           isDownloading: false,
           status: state.items.isEmpty ? 'All Done!' : 'Stopped',
-          // If stopped, keep last percentage? Or reset?
+          speed: '',
+          eta: '',
         ),
       );
     }

@@ -88,7 +88,12 @@ class BackgroundService {
     }
   }
 
-  Future<void> showProgress(String title, int progress, int max) async {
+  Future<void> showProgress(
+    String title,
+    int progress,
+    int max, {
+    String? subtext,
+  }) async {
     if (!Platform.isAndroid || !_initialized) return;
 
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -104,6 +109,7 @@ class BackgroundService {
           progress: progress,
           ongoing: true,
           autoCancel: false,
+          subText: subtext,
         );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(

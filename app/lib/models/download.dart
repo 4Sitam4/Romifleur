@@ -37,6 +37,8 @@ class DownloadProgress {
   final String status;
   final String? currentFile;
   final bool isDownloading;
+  final String speed;
+  final String eta;
 
   const DownloadProgress({
     this.current = 0,
@@ -45,6 +47,8 @@ class DownloadProgress {
     this.status = '',
     this.currentFile,
     this.isDownloading = false,
+    this.speed = '',
+    this.eta = '',
   });
 
   factory DownloadProgress.fromJson(Map<String, dynamic> json) {
@@ -55,8 +59,11 @@ class DownloadProgress {
       status: json['status'] ?? '',
       currentFile: json['current_file'],
       isDownloading: json['is_downloading'] ?? false,
+      speed: json['speed'] ?? '',
+      eta: json['eta'] ?? '',
     );
   }
+
   DownloadProgress copyWith({
     int? current,
     int? total,
@@ -64,6 +71,8 @@ class DownloadProgress {
     String? status,
     double? percentage,
     bool? isDownloading,
+    String? speed,
+    String? eta,
   }) {
     return DownloadProgress(
       current: current ?? this.current,
@@ -72,6 +81,8 @@ class DownloadProgress {
       status: status ?? this.status,
       percentage: percentage ?? this.percentage,
       isDownloading: isDownloading ?? this.isDownloading,
+      speed: speed ?? this.speed,
+      eta: eta ?? this.eta,
     );
   }
 }
