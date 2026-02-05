@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
@@ -11,6 +13,94 @@ import 'package:romifleur/models/rom.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
+
+// Top-level isolated function for background extraction
+// Top-level isolated function for background extraction with progress
+// Top-level isolated function for background extraction with byte-level progress
+void _isolateExtraction(List<dynamic> args) {
+  final String zipPath = args[0];
+  final String destPath = args[1];
+  final SendPort sendPort = args[2];
+
+  try {
+    final inputStream = InputFileStream(zipPath);
+    final archive = ZipDecoder().decodeBuffer(inputStream);
+    
+    // Calculate total size
+    int totalBytes = 0;
+    for (var file in archive.files) {
+      if (file.isFile) totalBytes += file.size;
+    }
+
+    int processedBytes = 0;
+    int lastUpdateTicks = 0;
+
+    for (var file in archive.files) {
+      if (file.isFile) {
+        final outputStream = OutputFileStream(p.join(destPath, file.name));
+        
+        dynamic content = file.content;
+
+        if (content is InputStreamBase) { // Use InputStreamBase to be safe
+           const chunkSize = 1024 * 1024; // 1MB chunk
+           
+           while (!content.isEOS) {
+             final int remaining = content.length - content.position;
+             final int len = remaining < chunkSize ? remaining : chunkSize;
+             if (len <= 0) break;
+             
+             final bytes = content.readBytes(len).toUint8List();
+             outputStream.writeBytes(bytes);
+             
+             processedBytes += len;
+             
+             final now = DateTime.now().millisecondsSinceEpoch;
+             
+             // Throttle events (100ms)
+             if (now - lastUpdateTicks > 100) {
+               sendPort.send(processedBytes / totalBytes);
+               lastUpdateTicks = now;
+             }
+           }
+        } else if (content is List<int>) {
+           // Write RAM buffer in chunks to avoid blocking I/O and allow progress
+           const chunkSize = 1024 * 1024; // 1MB
+           int position = 0;
+           
+           while (position < content.length) {
+             final int remaining = content.length - position;
+             final int len = remaining < chunkSize ? remaining : chunkSize;
+             
+             final chunk = content is Uint8List 
+                 ? content.sublist(position, position + len)
+                 : content.sublist(position, position + len) as List<int>;
+                 
+             outputStream.writeBytes(chunk);
+             
+             position += len;
+             
+             final now = DateTime.now().millisecondsSinceEpoch;
+             if (now - lastUpdateTicks > 100) {
+               sendPort.send(processedBytes / totalBytes);
+               lastUpdateTicks = now;
+             }
+           }
+        } else {
+           file.writeContent(outputStream);
+           processedBytes += file.size;
+        }
+        outputStream.close();
+      } else {
+        Directory(p.join(destPath, file.name)).createSync(recursive: true);
+      }
+    }
+    
+    inputStream.close();
+    sendPort.send(true); // Done
+  } catch (e) {
+    sendPort.send(e.toString()); // Error
+  }
+}
 
 class DownloadProgressEvent {
   final double progress; // 0.0 to 1.0 (or > 1.0 for extraction)
@@ -437,8 +527,33 @@ class RomService {
               receivedBytes: totalLength,
               totalBytes: totalLength); // 80% - download complete
 
-          // Extract ZIP locally
-          extractFileToDisk(tempZipPath, tempDir.path);
+          // Extract ZIP locally (Background Isolate with Granular Progress)
+          final receivePort = ReceivePort();
+          final isolate = await Isolate.spawn(
+            _isolateExtraction,
+            [tempZipPath, tempDir.path, receivePort.sendPort],
+          );
+
+          try {
+            await for (final message in receivePort) {
+               if (message is double) {
+                 // Map extraction progress (0.0-1.0) to overall progress (0.8-0.9)
+                 yield DownloadProgressEvent(
+                   progress: 0.8 + (0.1 * message),
+                   receivedBytes: totalLength,
+                   totalBytes: totalLength,
+                 );
+               } else if (message == true) {
+                 break; // Done
+               } else if (message is String) {
+                 throw Exception(message);
+               }
+            }
+          } finally {
+            isolate.kill(priority: Isolate.immediate);
+            receivePort.close();
+          }
+
           print('✅ ZIP extracted locally');
           yield DownloadProgressEvent(
               progress: 0.9,
@@ -574,20 +689,41 @@ class RomService {
   }
 
   Stream<double> _extractZipStream(String zipPath) async* {
+    final receivePort = ReceivePort();
+    Isolate? isolate;
+
     try {
       final dir = p.dirname(zipPath);
+      
+      // Spawn the isolation
+      isolate = await Isolate.spawn(
+        _isolateExtraction,
+        [zipPath, dir, receivePort.sendPort],
+      );
 
-      // Use extractFileToDisk for memory-efficient streaming extraction
-      // This processes file-by-file without loading entire archive into RAM
-      extractFileToDisk(zipPath, dir);
-
-      yield 1.0; // Extraction complete
+      // Listen for progress messages
+      await for (final message in receivePort) {
+        if (message is double) {
+          yield message; // 0.0 to 1.0
+        } else if (message == true) {
+          break; // Done
+        } else if (message is String) {
+          throw Exception(message); // Error from isolate
+        }
+      }
+      
+      // Kill isolate to release file locks on Windows
+      isolate.kill(priority: Isolate.immediate);
+      isolate = null;
 
       // Delete zip after successful extraction
       await File(zipPath).delete();
     } catch (e) {
       print('⚠️ Extraction failed: $e');
       rethrow;
+    } finally {
+      isolate?.kill(priority: Isolate.immediate);
+      receivePort.close();
     }
   }
 }
