@@ -9,11 +9,17 @@ class LocalScannerService {
   /// [consoleFolder] is the folder name (e.g., "3ds", "n3ds")
   /// Returns a list of filenames
   Future<List<String>> scanLocalRoms(
-    String consoleFolder,
-    List<String> extensions,
-  ) async {
+    String directoryPath,
+    List<String> extensions, {
+    String? subfolder,
+  }) async {
+    // Use subfolder if provided, otherwise directoryPath is assumed to be the folder name
+    final targetFolder = (subfolder != null && subfolder.isNotEmpty)
+        ? subfolder
+        : directoryPath;
+
     try {
-      final response = await http.get(Uri.parse('/api/scan/$consoleFolder'));
+      final response = await http.get(Uri.parse('/api/scan/$targetFolder'));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);

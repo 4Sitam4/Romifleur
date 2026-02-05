@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:romifleur/services/background_service.dart';
 import 'package:romifleur/services/config_service.dart';
 import 'package:romifleur/services/rom_service.dart';
 import 'package:romifleur/services/metadata_service.dart';
@@ -21,6 +22,9 @@ final raServiceProvider = Provider<RaService>((ref) => RaService());
 final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 final localScannerServiceProvider = Provider<LocalScannerService>(
   (ref) => LocalScannerService(),
+);
+final backgroundServiceProvider = Provider<BackgroundService>(
+  (ref) => BackgroundService(),
 );
 
 // ===== CONSOLES PROVIDER =====
@@ -311,14 +315,17 @@ class RomsNotifier extends StateNotifier<RomsState> {
 
     // Determine scan path
     String scanPath;
+    String? subfolder;
+
     if (customPath != null && customPath.isNotEmpty) {
       scanPath = customPath;
     } else {
-      // For natives: use downloadPath + defaultFolder
+      // For natives: use downloadPath + defaultFolder (as subfolder for SAF)
       // For web: just send the folder name (server handles it)
       final downloadPath = await configService.getEffectiveDownloadLocation();
       if (downloadPath != null) {
-        scanPath = '$downloadPath/$defaultFolder';
+        scanPath = downloadPath;
+        subfolder = defaultFolder;
       } else {
         scanPath = defaultFolder; // Web uses just folder name
       }
@@ -352,6 +359,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
     final localFiles = await localScannerService.scanLocalRoms(
       scanPath,
       extensions,
+      subfolder: subfolder,
     );
 
     if (localFiles.isEmpty) return roms;
@@ -409,10 +417,16 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
   final RomService romService;
   final ConfigService configService;
   final RomsNotifier romsNotifier;
+  final BackgroundService backgroundService;
   DownloadCancellationToken? _cancelToken;
+  int _lastPercentage = -1;
 
-  DownloadQueueNotifier(this.romService, this.configService, this.romsNotifier)
-    : super(const DownloadQueueState());
+  DownloadQueueNotifier(
+    this.romService,
+    this.configService,
+    this.romsNotifier,
+    this.backgroundService,
+  ) : super(const DownloadQueueState());
 
   void cancelCurrentDownload() {
     _cancelToken?.cancel();
@@ -534,6 +548,11 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     if (state.isLoading || state.progress.isDownloading) return;
 
     state = state.copyWith(isLoading: true);
+
+    // Enable background mode (prevent sleep/doze)
+    await backgroundService.enableBackgroundExecution();
+    _lastPercentage = -1;
+
     final itemsToDownload = List<DownloadItem>.from(state.items);
     final totalCount = itemsToDownload.length;
     final saveDir = await configService.getEffectiveDownloadLocation();
@@ -598,6 +617,17 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             final double actual =
                 (currentBase + (itemContribution * normalizedProgress)) * 100;
 
+            // Update notification
+            final int currentPercent = actual.toInt();
+            if (currentPercent != _lastPercentage) {
+              _lastPercentage = currentPercent;
+              backgroundService.showProgress(
+                fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
+                currentPercent,
+                100,
+              );
+            }
+
             state = state.copyWith(
               progress: state.progress.copyWith(
                 current: processedCount,
@@ -650,6 +680,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     } finally {
       _cancelToken = null;
 
+      // Disable background mode
+      await backgroundService.disableBackgroundExecution();
+
       // Refesh ownership ALWAYS (even if cancelled)
       await romsNotifier.refreshOwnership();
 
@@ -672,5 +705,6 @@ final downloadQueueProvider =
         ref.watch(romServiceProvider),
         ref.watch(configServiceProvider),
         ref.read(romsProvider.notifier),
+        ref.watch(backgroundServiceProvider),
       );
     });

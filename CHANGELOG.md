@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 3.3.4
+### New Features 🚀
+- **Background Downloads**: Downloads now continue reliably when the app is in the background or screen is off (Android).
+- **Progress Notifications**: A notification now shows the progress of the active download.
+- **About Dialog**: Added an info screen in Settings with version and credits.
+
+### Fixes 🐛
+- **Windows Support**: Fixed a crash when starting downloads on Windows caused by Android-specific background services.
+- **Android Game Detection**: Fixed an issue where downloaded games were not recognized (SAF subfolder scanning).
+- **Build**: Fixed build errors related to Android core library desugaring.
+
 ## [3.3.3] - 2026-02-05
 ### Fixed
 - **Android SD Card Support (Issue #46)**: Implemented full support for downloading to external SD cards on Android 11+ using the Storage Access Framework (SAF).

@@ -9,17 +9,36 @@ class LocalScannerService {
   /// Returns a list of filenames (without paths)
   Future<List<String>> scanLocalRoms(
     String directoryPath,
-    List<String> extensions,
-  ) async {
+    List<String> extensions, {
+    String? subfolder,
+  }) async {
     final List<String> foundFiles = [];
 
     try {
       if (directoryPath.startsWith('content://')) {
         // === SAF SCANNING ===
         final safUtil = SafUtil();
-        // Verify existence first check is implicit in list?
-        // SafUtil.list returns list of SafFile
-        final files = await safUtil.list(directoryPath);
+
+        String targetUri = directoryPath;
+
+        // If subfolder is specified, navigate to it
+        if (subfolder != null && subfolder.isNotEmpty) {
+          try {
+            final rootFiles = await safUtil.list(directoryPath);
+            // Simple finding by name (assuming unique match)
+            final folderMatch = rootFiles.firstWhere(
+              (f) => f.name.toLowerCase() == subfolder.toLowerCase(),
+            );
+            targetUri = folderMatch.uri;
+          } catch (e) {
+            print(
+              '⚠️ Subfolder "$subfolder" not found in root or scan failed: $e',
+            );
+            return [];
+          }
+        }
+
+        final files = await safUtil.list(targetUri);
 
         for (final info in files) {
           final filename = info.name;
@@ -29,11 +48,17 @@ class LocalScannerService {
             (e) => ext == e.toLowerCase() || ext == '.$e'.toLowerCase(),
           )) {
             foundFiles.add(filename);
+            print('✅ Found local ROM (SAF): $filename');
           }
         }
       } else {
         // === FILE SYSTEM SCANNING ===
-        final dir = Directory(directoryPath);
+        var dirPath = directoryPath;
+        if (subfolder != null && subfolder.isNotEmpty) {
+          dirPath = p.join(directoryPath, subfolder);
+        }
+
+        final dir = Directory(dirPath);
         if (!await dir.exists()) {
           return [];
         }
@@ -43,7 +68,6 @@ class LocalScannerService {
             final filename = p.basename(entity.path);
             final ext = p.extension(filename).toLowerCase();
 
-            // Check if extension matches (extensions should include the dot)
             if (extensions.any(
               (e) => ext == e.toLowerCase() || ext == '.$e'.toLowerCase(),
             )) {

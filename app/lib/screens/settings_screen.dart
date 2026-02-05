@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/theme.dart';
 import '../providers/providers.dart';
@@ -114,6 +116,70 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     }
   }
 
+  Future<void> _showAboutDialog() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: AppTheme.cardColor,
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Romifleur'),
+              const SizedBox(height: 4),
+              Text(
+                'v${info.version}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.textMuted,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Check out the source code:'),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => launchUrl(
+                  Uri.parse('https://github.com/4Sitam4/Romifleur'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                child: const Text(
+                  'https://github.com/4Sitam4/Romifleur',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.accentColor,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Made by Sitam with love ❤️',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -145,6 +211,11 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.info_outline),
+                          tooltip: 'About',
+                          onPressed: _showAboutDialog,
+                        ),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.of(context).pop(),
