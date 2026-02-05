@@ -308,6 +308,51 @@ class RomService {
     }
   }
 
+  /// Safe mkdirp that handles pre-existing directories gracefully
+  Future<dynamic> _safeMkdirp(
+    SafUtil safUtil,
+    String baseUri,
+    List<String> segments,
+  ) async {
+    try {
+      // Try direct creation first (fast path)
+      return await safUtil.mkdirp(baseUri, segments);
+    } catch (e) {
+      // If it fails, fallback to checking existence segment by segment
+      if (segments.isEmpty) {
+        rethrow;
+      }
+
+      final currentSegment = segments.first;
+      dynamic match;
+
+      try {
+        final children = await safUtil.list(baseUri);
+        match = children.firstWhere(
+          (element) =>
+              element.name.toLowerCase() == currentSegment.toLowerCase(),
+          orElse:
+              () => throw Exception('Segment not found'), // Trigger outer catch
+        );
+      } catch (_) {
+        // Not found in list, and mkdirp failed? Real error.
+        print(
+          '❌ mkdirp failed and segment "$currentSegment" not found in $baseUri',
+        );
+        rethrow;
+      }
+
+      // Found the segment!
+      if (segments.length == 1) {
+        // It was the last one, success!
+        return match;
+      } else {
+        // Recurse for remaining segments
+        return _safeMkdirp(safUtil, match.uri, segments.sublist(1));
+      }
+    }
+  }
+
   /// Download using SAF for Android SD card access
   /// For ZIPs: download to temp, extract, paste to SAF
   Stream<double> _downloadWithSaf(
@@ -325,7 +370,7 @@ class RomService {
 
     try {
       // Create subfolder if it doesn't exist
-      final subDirResult = await safUtil.mkdirp(safDirUri, [subFolder]);
+      final subDirResult = await _safeMkdirp(safUtil, safDirUri, [subFolder]);
       final targetDirUri = subDirResult.uri;
 
       if (isZip) {
@@ -379,7 +424,8 @@ class RomService {
               String destDirUri = targetDirUri;
               if (parentDir != '.' && parentDir.isNotEmpty) {
                 final subDirs = parentDir.split(p.separator);
-                final parentResult = await safUtil.mkdirp(
+                final parentResult = await _safeMkdirp(
+                  safUtil,
                   targetDirUri,
                   subDirs,
                 );
