@@ -26,7 +26,7 @@ All notable changes to this project will be documented in this file.
 - **Specific Error Handling**: `FileSystemException` caught specifically for disk-full scenarios with OS error codes.
 - **Magic Strings**: Extracted SharedPreferences keys to constants.
 
-## 3.3.4
+## [3.3.4] - 2026-02-05
 ### New Features 🚀
 - **Background Downloads**: Downloads now continue reliably when the app is in the background or screen is off (Android).
 - **Progress Notifications**: A notification now shows the progress of the active download.

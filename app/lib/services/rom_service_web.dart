@@ -13,6 +13,18 @@ import 'package:romifleur/models/rom.dart';
 // - No direct File System access
 // - Downloads are triggered via Browser
 
+class DownloadProgressEvent {
+  final double progress;
+  final int receivedBytes;
+  final int totalBytes;
+
+  const DownloadProgressEvent({
+    required this.progress,
+    required this.receivedBytes,
+    required this.totalBytes,
+  });
+}
+
 class RomService {
   final ConfigService _configService = ConfigService();
   final Map<String, List<RomModel>> _cache = {};
@@ -188,7 +200,7 @@ class RomService {
     return filtered;
   }
 
-  Stream<double> downloadFile(
+  Stream<DownloadProgressEvent> downloadFile(
     String category,
     String consoleKey,
     String filename, {
@@ -246,8 +258,8 @@ class RomService {
 
       if (response.statusCode == 200) {
         print('✅ Server accepted download');
-        yield 1.0;
-        yield 2.0; // Done
+        yield DownloadProgressEvent(progress: 1.0, receivedBytes: 0, totalBytes: 0);
+        yield DownloadProgressEvent(progress: 2.0, receivedBytes: 0, totalBytes: 0); // Done
       } else {
         throw Exception(
           'Server failed: ${response.statusCode} ${response.body}',
