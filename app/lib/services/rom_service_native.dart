@@ -18,100 +18,15 @@ import 'package:saf_util/saf_util.dart';
 const _log = AppLogger('RomService');
 
 // Top-level isolated function for background extraction
-// Top-level isolated function for background extraction with progress
-// Top-level isolated function for background extraction with byte-level progress
+// Uses extractFileToDisk for memory-efficient streaming extraction
+// This processes file-by-file without loading entire archive into RAM
 void _isolateExtraction(List<dynamic> args) {
   final String zipPath = args[0];
   final String destPath = args[1];
   final SendPort sendPort = args[2];
 
   try {
-    final inputStream = InputFileStream(zipPath);
-    final archive = ZipDecoder().decodeBuffer(inputStream);
-
-    // Calculate total size
-    int totalBytes = 0;
-    for (var file in archive.files) {
-      if (file.isFile) totalBytes += file.size;
-    }
-
-    int processedBytes = 0;
-    int lastUpdateTicks = 0;
-
-    for (var file in archive.files) {
-      if (file.isFile) {
-        final outputStream = OutputFileStream(p.join(destPath, file.name));
-
-        dynamic content = file.content;
-
-        if (content is InputStreamBase) {
-          // Use InputStreamBase to be safe
-          const chunkSize = 1024 * 1024; // 1MB chunk
-
-          while (!content.isEOS) {
-            final int remaining = content.length - content.position;
-            final int len = remaining < chunkSize ? remaining : chunkSize;
-            if (len <= 0) break;
-
-            final bytes = content.readBytes(len).toUint8List();
-            outputStream.writeBytes(bytes);
-
-            processedBytes += len;
-
-            final now = DateTime.now().millisecondsSinceEpoch;
-
-            // Throttle events (100ms)
-            if (now - lastUpdateTicks > 100) {
-              sendPort.send(processedBytes / totalBytes);
-              lastUpdateTicks = now;
-            }
-          }
-        } else if (content is List<int>) {
-          // Write RAM buffer in chunks to avoid blocking I/O and allow progress
-          const chunkSize = 1024 * 1024; // 1MB
-          int position = 0;
-
-          while (position < content.length) {
-            final int remaining = content.length - position;
-            final int len = remaining < chunkSize ? remaining : chunkSize;
-
-            final chunk = content.sublist(position, position + len);
-
-            outputStream.writeBytes(chunk);
-
-            position += len;
-            processedBytes += len;
-
-            final now = DateTime.now().millisecondsSinceEpoch;
-            if (now - lastUpdateTicks > 100) {
-              sendPort.send(processedBytes / totalBytes);
-              lastUpdateTicks = now;
-            }
-          }
-        } else {
-          file.writeContent(outputStream);
-          processedBytes += file.size;
-        }
-        outputStream.close();
-
-        // Verify extracted file size matches ZIP header
-        final extractedFile = File(p.join(destPath, file.name));
-        if (extractedFile.existsSync()) {
-          final actualSize = extractedFile.lengthSync();
-          if (actualSize != file.size) {
-            sendPort.send(
-              'Extraction failed: size mismatch for ${file.name} '
-              '(expected ${file.size} bytes, got $actualSize bytes)',
-            );
-            return;
-          }
-        }
-      } else {
-        Directory(p.join(destPath, file.name)).createSync(recursive: true);
-      }
-    }
-
-    inputStream.close();
+    extractFileToDisk(zipPath, destPath);
     sendPort.send(true); // Done
   } catch (e) {
     sendPort.send(e.toString()); // Error
@@ -847,7 +762,7 @@ class RomService {
       // Delete zip after successful extraction
       await File(zipPath).delete();
     } catch (e) {
-      print('⚠️ Extraction failed: $e');
+      _log.error('Extraction failed: $e');
       rethrow;
     } finally {
       isolate?.kill(priority: Isolate.immediate);
