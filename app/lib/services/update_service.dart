@@ -1,5 +1,8 @@
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('UpdateService');
 
 class UpdateInfo {
   final String currentVersion;
@@ -29,7 +32,7 @@ class UpdateService {
       // 2. Fetch remote CHANGELOG.md
       final response = await http.get(Uri.parse(_changelogUrl));
       if (response.statusCode != 200) {
-        print("❌ Failed to fetch changelog: ${response.statusCode}");
+        _log.error('Failed to fetch changelog: ${response.statusCode}');
         return null;
       }
 
@@ -62,7 +65,7 @@ class UpdateService {
         );
       }
     } catch (e) {
-      print("❌ Update check failed: $e");
+      _log.error('Update check failed: $e');
       return null;
     }
   }

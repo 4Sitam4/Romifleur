@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('CancellationToken');
 
 /// A simple token that can be passed to async operations to signal cancellation.
 class DownloadCancellationToken {
@@ -25,7 +28,7 @@ class DownloadCancellationToken {
       try {
         listener();
       } catch (e) {
-        print('Error in cancellation listener: $e');
+        _log.error('Error in cancellation listener: $e');
       }
     }
     _listeners.clear();

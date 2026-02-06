@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:romifleur/services/config_service.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('RaService');
 
 class RaService {
   static const String _baseUrl = "https://retroachievements.org/API";
 
   final ConfigService _config = ConfigService();
   Map<String, List<dynamic>> _cache = {}; // ConsoleID -> List of Games
+  Timer? _saveTimer;
 
   static final RaService _instance = RaService._internal();
   factory RaService() => _instance;
@@ -30,15 +35,26 @@ class RaService {
           _cache[k] = List<dynamic>.from(v);
         });
       } catch (e) {
-        print('⚠️ Error loading RA cache: $e');
+        _log.warning('Error loading RA cache: $e');
       }
     }
   }
 
-  Future<void> _saveCache() async {
-    final dir = await _config.getDataDir();
-    final file = File(p.join(dir, 'ra_cache.json'));
-    await file.writeAsString(json.encode(_cache));
+  void _scheduleSaveCache() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), () {
+      _doSaveCache();
+    });
+  }
+
+  Future<void> _doSaveCache() async {
+    try {
+      final dir = await _config.getDataDir();
+      final file = File(p.join(dir, 'ra_cache.json'));
+      await file.writeAsString(json.encode(_cache));
+    } catch (e) {
+      print('⚠️ Error saving RA cache: $e');
+    }
   }
 
   /// Get/Validate API Key
@@ -55,7 +71,7 @@ class RaService {
         return data is List && data.isNotEmpty;
       }
     } catch (e) {
-      print('❌ RA Key Validation Error: $e');
+      _log.error('RA Key Validation Error: $e');
     }
     return false;
   }
@@ -97,12 +113,12 @@ class RaService {
               .toList();
 
           _cache[cid] = simplified;
-          _saveCache();
+          _scheduleSaveCache();
           return simplified;
         }
       }
     } catch (e) {
-      print('❌ RA Fetch Error: $e');
+      _log.error('RA Fetch Error: $e');
     }
     return [];
   }

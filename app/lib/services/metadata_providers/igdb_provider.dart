@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:romifleur/models/game_metadata.dart';
 import 'package:romifleur/services/metadata_providers/metadata_provider.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('IgdbProvider');
 
 class IgdbProvider implements MetadataProvider {
   static const String _clientId = "n8z4dla3zzfrdwxbeptpyjonwa54v7";
@@ -50,10 +53,10 @@ class IgdbProvider implements MetadataProvider {
         );
         return _accessToken;
       } else {
-        print('❌ IGDB Auth Failed: ${response.statusCode} - ${response.body}');
+        _log.error('IGDB Auth Failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print('❌ IGDB Auth Error: $e');
+      _log.error('IGDB Auth Error: $e');
     }
     return null;
   }
@@ -149,7 +152,7 @@ limit 1;
         }
       }
     } catch (e) {
-      print('❌ IGDB Search Error: $e');
+      _log.error('IGDB Search Error: $e');
     }
     return null;
   }

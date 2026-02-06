@@ -1,6 +1,9 @@
 import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io' show Platform;
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('BackgroundService');
 
 class BackgroundService {
   bool _initialized = false;
@@ -57,7 +60,7 @@ class BackgroundService {
         androidConfig: androidConfig,
       );
     } catch (e) {
-      print('⚠️ Failed to initialize background service: $e');
+      _log.warning('Failed to initialize background service: $e');
     }
   }
 
@@ -69,7 +72,7 @@ class BackgroundService {
     try {
       await FlutterBackground.enableBackgroundExecution();
     } catch (e) {
-      print('⚠️ Failed to enable background execution: $e');
+      _log.warning('Failed to enable background execution: $e');
     }
   }
 
@@ -84,7 +87,7 @@ class BackgroundService {
     try {
       await FlutterBackground.disableBackgroundExecution();
     } catch (e) {
-      print('⚠️ Failed to disable background execution: $e');
+      _log.warning('Failed to disable background execution: $e');
     }
   }
 
@@ -124,7 +127,7 @@ class BackgroundService {
         notificationDetails: platformChannelSpecifics,
       );
     } catch (e) {
-      print('Error showing notification: $e');
+      _log.error('Error showing notification: $e');
     }
   }
 
@@ -133,7 +136,7 @@ class BackgroundService {
     try {
       await _notificationsPlugin.cancel(id: _progressNotificationId);
     } catch (e) {
-      print('Error cancelling notification: $e');
+      _log.error('Error cancelling notification: $e');
     }
   }
 }

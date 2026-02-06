@@ -4,10 +4,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('ConfigService');
 
 class ConfigService {
   static const String _kRomsPathKey = 'roms_path';
   static const String _kRaApiKey = 'ra_api_key';
+  static const String _kConsolePath = 'console_path_';
 
   late SharedPreferences _prefs;
   Map<String, Map<String, dynamic>> _consoles = {};
@@ -44,7 +48,7 @@ class ConfigService {
         }
       });
     } catch (e) {
-      print('❌ Error loading consoles.json: $e');
+      _log.error('Error loading consoles.json: $e');
     }
   }
 
@@ -122,17 +126,17 @@ class ConfigService {
 
   /// Get custom path for a console (returns null if using default)
   String? getConsolePath(String consoleKey) {
-    return _prefs.getString('console_path_$consoleKey');
+    return _prefs.getString('$_kConsolePath$consoleKey');
   }
 
   /// Set custom path for a console
   Future<void> setConsolePath(String consoleKey, String path) async {
-    await _prefs.setString('console_path_$consoleKey', path);
+    await _prefs.setString('$_kConsolePath$consoleKey', path);
   }
 
   /// Clear custom path for a console (reset to default)
   Future<void> clearConsolePath(String consoleKey) async {
-    await _prefs.remove('console_path_$consoleKey');
+    await _prefs.remove('$_kConsolePath$consoleKey');
   }
 
   /// Get all custom console paths (for settings display)
@@ -140,8 +144,8 @@ class ConfigService {
     final Map<String, String> paths = {};
     final keys = _prefs.getKeys();
     for (final key in keys) {
-      if (key.startsWith('console_path_')) {
-        final consoleKey = key.replaceFirst('console_path_', '');
+      if (key.startsWith(_kConsolePath)) {
+        final consoleKey = key.replaceFirst(_kConsolePath, '');
         final value = _prefs.getString(key);
         if (value != null) {
           paths[consoleKey] = value;

@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:saf_util/saf_util.dart';
 import '../models/ownership_status.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('LocalScanner');
 
 /// Service for scanning local ROM files (Native implementation)
 class LocalScannerService {
@@ -31,8 +34,8 @@ class LocalScannerService {
             );
             targetUri = folderMatch.uri;
           } catch (e) {
-            print(
-              '⚠️ Subfolder "$subfolder" not found in root or scan failed: $e',
+            _log.warning(
+              'Subfolder "$subfolder" not found in root or scan failed: $e',
             );
             return [];
           }
@@ -48,7 +51,7 @@ class LocalScannerService {
             (e) => ext == e.toLowerCase() || ext == '.$e'.toLowerCase(),
           )) {
             foundFiles.add(filename);
-            print('✅ Found local ROM (SAF): $filename');
+            _log.info('Found local ROM (SAF): $filename');
           }
         }
       } else {
@@ -77,7 +80,7 @@ class LocalScannerService {
         }
       }
     } catch (e) {
-      print('❌ Error scanning directory ($directoryPath): $e');
+      _log.error('Error scanning directory ($directoryPath): $e');
     }
 
     return foundFiles;

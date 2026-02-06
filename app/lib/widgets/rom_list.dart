@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 
 import '../config/theme.dart';
@@ -19,13 +20,22 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
   final _scrollController = ScrollController();
   String? _addToQueueMessage;
   Timer? _queueTimer;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
     _queueTimer?.cancel();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(romsProvider.notifier).setSearch(value);
+    });
   }
 
   @override
@@ -177,8 +187,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                   filled: true,
                   fillColor: Colors.black12,
                 ),
-                onChanged: (value) =>
-                    ref.read(romsProvider.notifier).setSearch(value),
+                onChanged: _onSearchChanged,
               ),
             ),
             const SizedBox(width: 8),
@@ -501,9 +510,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
                     )
                   : null,
             ),
-            onChanged: (value) {
-              ref.read(romsProvider.notifier).setSearch(value);
-            },
+            onChanged: _onSearchChanged,
           ),
           const SizedBox(height: 12),
 
@@ -679,6 +686,7 @@ class _RomListPanelState extends ConsumerState<RomListPanel> {
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       itemCount: roms.length,
+      itemExtent: 72.0,
       itemBuilder: (context, index) {
         final rom = roms[index];
         return _RomListItem(
@@ -882,10 +890,13 @@ class _GameDetailsDialogState extends ConsumerState<_GameDetailsDialog> {
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl != null && imageUrl.isNotEmpty
-          ? Image.network(
-              imageUrl,
+          ? CachedNetworkImage(
+              imageUrl: imageUrl,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) =>
+              memCacheHeight: 400,
+              placeholder: (context, url) =>
+                  const Center(child: CircularProgressIndicator()),
+              errorWidget: (context, url, error) =>
                   const Center(child: Icon(Icons.broken_image, size: 64)),
             )
           : const Center(

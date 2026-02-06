@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:romifleur/models/game_metadata.dart';
 import 'package:romifleur/services/metadata_providers/metadata_provider.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('TgdbProvider');
 
 class TgdbProvider implements MetadataProvider {
   static const String _apiKey =
@@ -95,7 +98,7 @@ class TgdbProvider implements MetadataProvider {
         }
       }
     } catch (e) {
-      print('❌ TGDB Metadata fetch error: $e');
+      _log.error('TGDB Metadata fetch error: $e');
     }
     return null;
   }

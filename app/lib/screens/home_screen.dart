@@ -14,6 +14,9 @@ import '../widgets/rom_list.dart';
 import '../widgets/download_panel.dart';
 import 'settings_screen.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('HomeScreen');
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -148,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       }
     } catch (e) {
-      print('Update check failed: $e');
+      _log.error('Update check failed: $e');
     }
   }
 
@@ -351,14 +354,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       persistablePermission: true,
                     );
                     if (result != null && mounted) {
-                      print('✅ SAF folder selected: ${result.uri}');
+                      _log.info('SAF folder selected: ${result.uri}');
                       // Store the SAF URI, not the path
                       await config.setDownloadUri(result.uri);
                       Navigator.of(context).pop();
                     }
                   } catch (e) {
-                    print(
-                      '⚠️ SAF picker failed: $e - falling back to FilePicker',
+                    _log.warning(
+                      'SAF picker failed: $e - falling back to FilePicker',
                     );
                     // Fallback to FilePicker if SAF fails
                     final granted = await _requestStoragePermission();
@@ -367,7 +370,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     final String? result = await FilePicker.platform
                         .getDirectoryPath();
                     if (result != null && mounted) {
-                      print('📁 FilePicker result: $result');
+                      _log.info('FilePicker result: $result');
                       // Check if FilePicker returned a content:// URI (Android 11+)
                       if (result.startsWith('content://')) {
                         await config.setDownloadUri(result);

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:romifleur/services/background_service.dart';
 import 'package:romifleur/services/config_service.dart';
@@ -7,10 +8,13 @@ import 'package:romifleur/services/ra_service.dart';
 import 'package:romifleur/services/update_service.dart';
 import 'package:romifleur/services/local_scanner_service.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
+import 'package:romifleur/utils/logger.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
 import '../models/ownership_status.dart';
 import '../models/download.dart';
+
+const _log = AppLogger('Providers');
 
 // ===== SERVICE PROVIDERS =====
 final configServiceProvider = Provider<ConfigService>((ref) => ConfigService());
@@ -131,6 +135,11 @@ class RomsNotifier extends StateNotifier<RomsState> {
   String? _currentCategory;
   String? _currentConsoleKey;
 
+  // Cached local file scan results to avoid redundant filesystem scans on filter changes
+  List<String>? _cachedLocalFiles;
+  String? _cachedScanPath;
+  String? _cachedScanSubfolder;
+
   RomsNotifier(
     this.romService,
     this.raService,
@@ -141,13 +150,16 @@ class RomsNotifier extends StateNotifier<RomsState> {
   Future<void> loadRoms(String category, String consoleKey) async {
     _currentCategory = category;
     _currentConsoleKey = consoleKey;
+    _cachedLocalFiles = null; // Invalidate ownership cache on console change
     _refresh();
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool skipLoadingFlag = false}) async {
     if (_currentCategory == null || _currentConsoleKey == null) return;
 
-    state = state.copyWith(isLoading: true, error: null);
+    if (!skipLoadingFlag) {
+      state = state.copyWith(isLoading: true, error: null);
+    }
 
     try {
       // 1. Fetch filtered list (no deduplication - show all versions)
@@ -201,7 +213,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
           }).toList();
         }
       } catch (e) {
-        print('⚠️ Ownership scan failed: $e');
+        _log.warning('Ownership scan failed: $e');
         // Continue without ownership info
       }
 
@@ -212,8 +224,10 @@ class RomsNotifier extends StateNotifier<RomsState> {
   }
 
   void setSearch(String query) {
-    state = state.copyWith(searchQuery: query);
-    _refresh();
+    // Store the query in state and refresh in one go via _refresh
+    // which will read searchQuery from state
+    state = state.copyWith(searchQuery: query, isLoading: true);
+    _refresh(skipLoadingFlag: true);
   }
 
   void toggleRegion(String region) {
@@ -292,11 +306,12 @@ class RomsNotifier extends StateNotifier<RomsState> {
   /// Refresh only ownership status without reloading roms
   Future<void> refreshOwnership() async {
     if (_currentConsoleKey == null) return;
+    _cachedLocalFiles = null; // Force rescan after download
     try {
       final roms = await _applyOwnershipStatus(state.roms);
       state = state.copyWith(roms: roms);
     } catch (e) {
-      print('⚠️ Ownership refresh failed: $e');
+      _log.warning('Ownership refresh failed: $e');
     }
   }
 
@@ -331,7 +346,7 @@ class RomsNotifier extends StateNotifier<RomsState> {
       }
     }
 
-    // Scan for local ROMs
+    // Scan for local ROMs (use cached results if path hasn't changed)
     final extensions = [
       '.zip',
       '.7z',
@@ -356,11 +371,22 @@ class RomsNotifier extends StateNotifier<RomsState> {
       '.md',
       '.smd',
     ];
-    final localFiles = await localScannerService.scanLocalRoms(
-      scanPath,
-      extensions,
-      subfolder: subfolder,
-    );
+
+    List<String> localFiles;
+    if (_cachedLocalFiles != null &&
+        _cachedScanPath == scanPath &&
+        _cachedScanSubfolder == subfolder) {
+      localFiles = _cachedLocalFiles!;
+    } else {
+      localFiles = await localScannerService.scanLocalRoms(
+        scanPath,
+        extensions,
+        subfolder: subfolder,
+      );
+      _cachedLocalFiles = localFiles;
+      _cachedScanPath = scanPath;
+      _cachedScanSubfolder = subfolder;
+    }
 
     if (localFiles.isEmpty) return roms;
 
@@ -544,6 +570,37 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     return '${tmp.toStringAsFixed(1)} ${suffixes[i]}';
   }
 
+  /// Get available disk space in bytes for the given path.
+  /// Returns null if unable to determine.
+  Future<double?> _getAvailableSpace(String path) async {
+    try {
+      if (Platform.isWindows) {
+        // Use PowerShell to get free space on Windows
+        final drive = path.substring(0, 3); // e.g. "C:\"
+        final result = await Process.run('powershell', [
+          '-Command',
+          '(Get-PSDrive ${drive[0]}).Free',
+        ]);
+        if (result.exitCode == 0) {
+          return double.tryParse(result.stdout.toString().trim());
+        }
+      } else {
+        // Linux / macOS: use df
+        final result = await Process.run('df', ['-B1', path]);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().trim().split('\n');
+          if (lines.length >= 2) {
+            final parts = lines[1].split(RegExp(r'\s+'));
+            if (parts.length >= 4) {
+              return double.tryParse(parts[3]);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> startDownloads() async {
     if (state.isLoading || state.progress.isDownloading) return;
 
@@ -566,6 +623,36 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         ),
       );
       return;
+    }
+
+    // Check available disk space (non-SAF paths only)
+    if (!configService.isSafUri(saveDir)) {
+      try {
+        final stat = await FileStat.stat(saveDir);
+        if (stat.type != FileSystemEntityType.notFound) {
+          final totalQueueBytes = state.items.fold<double>(
+            0,
+            (sum, item) => sum + _parseSizeToBytes(item.size),
+          );
+          // Use df / wmic to check available space cross-platform
+          final availableBytes = await _getAvailableSpace(saveDir);
+          if (availableBytes != null && totalQueueBytes > availableBytes * 0.95) {
+            state = state.copyWith(
+              isLoading: false,
+              progress: DownloadProgress(
+                status:
+                    'Error: Not enough disk space (${_formatBytes(availableBytes)} available, ${state.totalSize} needed)',
+                isDownloading: false,
+              ),
+            );
+            await backgroundService.disableBackgroundExecution();
+            return;
+          }
+        }
+      } catch (e) {
+        // If we can't check space, continue anyway
+        _log.warning('Could not check disk space: $e');
+      }
     }
 
     int processedCount = 0;
@@ -682,7 +769,6 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             // 2. Speed was just updated (within last 100ms) - this syncs UI with speed calc
             // 3. First update (_lastSpeedUpdate is null)
             if (fileProgress >= 1.0 ||
-                _lastSpeedUpdate == null ||
                 now.difference(_lastSpeedUpdate).inMilliseconds < 100) {
               
               // Notification
@@ -734,15 +820,40 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               totalSize: _formatBytes(currentBytes),
             );
           }
+        } on FileSystemException catch (e) {
+          final errorCode = e.osError?.errorCode;
+          // ENOSPC (Linux/Mac: 28), ERROR_DISK_FULL (Windows: 112), ERROR_HANDLE_DISK_FULL (Windows: 39)
+          if (errorCode == 28 || errorCode == 112 || errorCode == 39) {
+            _log.error('Disk full: ${item.filename}');
+            state = state.copyWith(
+              progress: state.progress.copyWith(
+                status: 'Error: Not enough disk space to save ${item.filename}',
+                isDownloading: true,
+                speed: '',
+                eta: '',
+              ),
+            );
+            _cancelToken = null;
+            break; // Stop all downloads — disk is full
+          }
+          _log.error('File system error: $e');
+          state = state.copyWith(
+            progress: state.progress.copyWith(
+              status: 'Error: ${e.message}',
+              isDownloading: true,
+              speed: '',
+              eta: '',
+            ),
+          );
+          await Future.delayed(const Duration(milliseconds: 500));
         } catch (e) {
           if ((e.toString().contains('cancelled'))) {
-            print('🚫 Download Cancelled: ${item.filename}');
-            // Loop will break via token check or return here
+            _log.info('Download Cancelled: ${item.filename}');
             _cancelToken = null;
             break;
           }
 
-          print('Download Error: $e');
+          _log.error('Download Error: $e');
           state = state.copyWith(
             progress: state.progress.copyWith(
               status: 'Error: $e',

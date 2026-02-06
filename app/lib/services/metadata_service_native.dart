@@ -7,11 +7,15 @@ import 'package:romifleur/services/config_service.dart';
 import 'package:romifleur/services/metadata_aggregator.dart';
 import 'package:romifleur/services/metadata_providers/igdb_provider.dart';
 import 'package:romifleur/services/metadata_providers/tgdb_provider.dart';
+import 'package:romifleur/utils/logger.dart';
+
+const _log = AppLogger('MetadataService');
 
 class MetadataService {
   final ConfigService _config = ConfigService();
   Map<String, dynamic> _cache = {};
   final MetadataAggregator _aggregator;
+  Timer? _saveTimer;
 
   static final MetadataService _instance = MetadataService._internal();
   factory MetadataService() => _instance;
@@ -32,15 +36,26 @@ class MetadataService {
         final content = await file.readAsString();
         _cache = json.decode(content);
       } catch (e) {
-        print('⚠️ Error loading metadata cache: $e');
+        _log.warning('Error loading metadata cache: $e');
       }
     }
   }
 
-  Future<void> _saveCache() async {
-    final dir = await _config.getDataDir();
-    final file = File(p.join(dir, 'metadata_cache.json'));
-    await file.writeAsString(json.encode(_cache));
+  void _scheduleSaveCache() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), () {
+      _doSaveCache();
+    });
+  }
+
+  Future<void> _doSaveCache() async {
+    try {
+      final dir = await _config.getDataDir();
+      final file = File(p.join(dir, 'metadata_cache.json'));
+      await file.writeAsString(json.encode(_cache));
+    } catch (e) {
+      _log.warning('Error saving metadata cache: $e');
+    }
   }
 
   /// Get metadata stream for progressive enrichment
@@ -53,7 +68,7 @@ class MetadataService {
 
     // If we have cached data, emit it first
     if (_cache.containsKey(cacheKey)) {
-      print('📦 [$cleanName] CACHE HIT');
+      _log.debug('[$cleanName] Cache hit');
       final cachedMap = _cache[cacheKey];
       // Check if it's the old format or new
       // We can convert Map to GameMetadata
@@ -68,23 +83,34 @@ class MetadataService {
         // The aggregator logic is: fetch all.
         // We can just pipe the aggregator stream into this controller.
       } catch (e) {
-        print('⚠️ Error parsing cached metadata: $e');
+        _log.warning('Error parsing cached metadata: $e');
       }
     }
 
     // Pipe the aggregator stream
-    _aggregator
+    late StreamSubscription<GameMetadata> sub;
+    sub = _aggregator
         .getMetadataStream(consoleKey, filename)
         .listen(
           (data) {
             // Update cache with latest data
             _cache[cacheKey] = data.toJson();
-            _saveCache();
-            controller.add(data);
+            _scheduleSaveCache();
+            if (!controller.isClosed) {
+              controller.add(data);
+            }
           },
-          onError: (e) => controller.addError(e),
-          onDone: () => controller.close(),
+          onError: (e) {
+            if (!controller.isClosed) controller.addError(e);
+          },
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
         );
+
+    controller.onCancel = () {
+      sub.cancel();
+    };
 
     return controller.stream;
   }
@@ -103,7 +129,7 @@ class MetadataService {
 
     final output = meta.toJson();
     _cache[cacheKey] = output;
-    _saveCache(); // Fire and forget save
+    _scheduleSaveCache();
     return output;
   }
 }

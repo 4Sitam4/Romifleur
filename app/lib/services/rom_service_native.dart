@@ -11,8 +11,11 @@ import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
+import 'package:romifleur/utils/logger.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
+
+const _log = AppLogger('RomService');
 
 // Top-level isolated function for background extraction
 // Top-level isolated function for background extraction with progress
@@ -25,7 +28,7 @@ void _isolateExtraction(List<dynamic> args) {
   try {
     final inputStream = InputFileStream(zipPath);
     final archive = ZipDecoder().decodeBuffer(inputStream);
-    
+
     // Calculate total size
     int totalBytes = 0;
     for (var file in archive.files) {
@@ -38,63 +41,76 @@ void _isolateExtraction(List<dynamic> args) {
     for (var file in archive.files) {
       if (file.isFile) {
         final outputStream = OutputFileStream(p.join(destPath, file.name));
-        
+
         dynamic content = file.content;
 
-        if (content is InputStreamBase) { // Use InputStreamBase to be safe
-           const chunkSize = 1024 * 1024; // 1MB chunk
-           
-           while (!content.isEOS) {
-             final int remaining = content.length - content.position;
-             final int len = remaining < chunkSize ? remaining : chunkSize;
-             if (len <= 0) break;
-             
-             final bytes = content.readBytes(len).toUint8List();
-             outputStream.writeBytes(bytes);
-             
-             processedBytes += len;
-             
-             final now = DateTime.now().millisecondsSinceEpoch;
-             
-             // Throttle events (100ms)
-             if (now - lastUpdateTicks > 100) {
-               sendPort.send(processedBytes / totalBytes);
-               lastUpdateTicks = now;
-             }
-           }
+        if (content is InputStreamBase) {
+          // Use InputStreamBase to be safe
+          const chunkSize = 1024 * 1024; // 1MB chunk
+
+          while (!content.isEOS) {
+            final int remaining = content.length - content.position;
+            final int len = remaining < chunkSize ? remaining : chunkSize;
+            if (len <= 0) break;
+
+            final bytes = content.readBytes(len).toUint8List();
+            outputStream.writeBytes(bytes);
+
+            processedBytes += len;
+
+            final now = DateTime.now().millisecondsSinceEpoch;
+
+            // Throttle events (100ms)
+            if (now - lastUpdateTicks > 100) {
+              sendPort.send(processedBytes / totalBytes);
+              lastUpdateTicks = now;
+            }
+          }
         } else if (content is List<int>) {
-           // Write RAM buffer in chunks to avoid blocking I/O and allow progress
-           const chunkSize = 1024 * 1024; // 1MB
-           int position = 0;
-           
-           while (position < content.length) {
-             final int remaining = content.length - position;
-             final int len = remaining < chunkSize ? remaining : chunkSize;
-             
-             final chunk = content is Uint8List 
-                 ? content.sublist(position, position + len)
-                 : content.sublist(position, position + len) as List<int>;
-                 
-             outputStream.writeBytes(chunk);
-             
-             position += len;
-             
-             final now = DateTime.now().millisecondsSinceEpoch;
-             if (now - lastUpdateTicks > 100) {
-               sendPort.send(processedBytes / totalBytes);
-               lastUpdateTicks = now;
-             }
-           }
+          // Write RAM buffer in chunks to avoid blocking I/O and allow progress
+          const chunkSize = 1024 * 1024; // 1MB
+          int position = 0;
+
+          while (position < content.length) {
+            final int remaining = content.length - position;
+            final int len = remaining < chunkSize ? remaining : chunkSize;
+
+            final chunk = content.sublist(position, position + len);
+
+            outputStream.writeBytes(chunk);
+
+            position += len;
+            processedBytes += len;
+
+            final now = DateTime.now().millisecondsSinceEpoch;
+            if (now - lastUpdateTicks > 100) {
+              sendPort.send(processedBytes / totalBytes);
+              lastUpdateTicks = now;
+            }
+          }
         } else {
-           file.writeContent(outputStream);
-           processedBytes += file.size;
+          file.writeContent(outputStream);
+          processedBytes += file.size;
         }
         outputStream.close();
+
+        // Verify extracted file size matches ZIP header
+        final extractedFile = File(p.join(destPath, file.name));
+        if (extractedFile.existsSync()) {
+          final actualSize = extractedFile.lengthSync();
+          if (actualSize != file.size) {
+            sendPort.send(
+              'Extraction failed: size mismatch for ${file.name} '
+              '(expected ${file.size} bytes, got $actualSize bytes)',
+            );
+            return;
+          }
+        }
       } else {
         Directory(p.join(destPath, file.name)).createSync(recursive: true);
       }
     }
-    
+
     inputStream.close();
     sendPort.send(true); // Done
   } catch (e) {
@@ -114,9 +130,18 @@ class DownloadProgressEvent {
   });
 }
 
+class _CacheEntry {
+  final List<RomModel> data;
+  final DateTime createdAt;
+  _CacheEntry(this.data) : createdAt = DateTime.now();
+
+  bool get isExpired => DateTime.now().difference(createdAt).inMinutes > 30;
+}
+
 class RomService {
   final ConfigService _configService = ConfigService();
-  final Map<String, List<RomModel>> _cache = {};
+  final Map<String, _CacheEntry> _cache = {};
+  static const int _maxCacheEntries = 10;
 
   Future<List<RomModel>> fetchFileList(
     String category,
@@ -124,8 +149,9 @@ class RomService {
     bool forceReload = false,
   }) async {
     final cacheKey = '${category}_$consoleKey';
-    if (!forceReload && _cache.containsKey(cacheKey)) {
-      return _cache[cacheKey]!;
+    final entry = _cache[cacheKey];
+    if (!forceReload && entry != null && !entry.isExpired) {
+      return entry.data;
     }
 
     final config = _configService.getConsoleConfig(category, consoleKey);
@@ -136,7 +162,7 @@ class RomService {
     final validExts = exts.map((e) => e.toString().toLowerCase()).toList();
 
     try {
-      print('🌐 Fetching ROM list from: $url');
+      _log.info('Fetching ROM list from: $url');
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode != 200) {
@@ -161,10 +187,17 @@ class RomService {
         }
       }
 
-      _cache[cacheKey] = roms;
+      // Evict oldest entry if at capacity
+      if (_cache.length >= _maxCacheEntries) {
+        final oldest = _cache.entries.reduce(
+          (a, b) => a.value.createdAt.isBefore(b.value.createdAt) ? a : b,
+        );
+        _cache.remove(oldest.key);
+      }
+      _cache[cacheKey] = _CacheEntry(roms);
       return roms;
     } catch (e) {
-      print('❌ Error fetching file list: $e');
+      _log.error('Error fetching file list: $e');
       return [];
     }
   }
@@ -304,14 +337,14 @@ class RomService {
     // Check if we're using SAF (content:// URI)
     final bool useSaf = _configService.isSafUri(saveDir);
 
-    print('⬇️ Downloading: $downloadUrl');
-    print('📂 Save dir: $saveDir (SAF: $useSaf)');
+    _log.info('Downloading: $downloadUrl');
+    _log.info('Save dir: $saveDir (SAF: $useSaf)');
 
     final client = http.Client();
 
     // Register cancellation
     cancelToken?.onCancel(() {
-      print('🚫 Download cancelled: $filename');
+      _log.info('Download cancelled: $filename');
       client.close();
     });
 
@@ -363,6 +396,7 @@ class RomService {
 
         try {
           sink = file.openWrite();
+          int lastReportedBytes = 0;
 
           await for (final chunk in response.stream) {
             if (cancelToken?.isCancelled ?? false) {
@@ -370,12 +404,18 @@ class RomService {
             }
             sink.add(chunk);
             received += chunk.length;
-            if (totalLength > 0)
+
+            // Throttle: Update only every 100KB
+            if (totalLength > 0 &&
+                (received - lastReportedBytes > 1024 * 100 ||
+                    received == totalLength)) {
               yield DownloadProgressEvent(
                 progress: received / totalLength,
                 receivedBytes: received,
                 totalBytes: totalLength,
               );
+              lastReportedBytes = received;
+            }
           }
           await sink.close();
           sink = null;
@@ -386,9 +426,9 @@ class RomService {
           if (await file.exists()) {
             try {
               await file.delete();
-              print('🗑️ Deleted incomplete file: ${file.path}');
+              _log.info('Deleted incomplete file: ${file.path}');
             } catch (delError) {
-              print('⚠️ Failed to delete incomplete file: $delError');
+              _log.warning('Failed to delete incomplete file: $delError');
             }
           }
           rethrow;
@@ -412,13 +452,14 @@ class RomService {
               );
             }
           } catch (e) {
-            print('⚠️ Extraction failed: $e');
+            _log.warning('Extraction failed: $e');
+            rethrow;
           }
         }
       }
     } catch (e) {
       if (cancelToken?.isCancelled ?? false) {
-        print('✅ Clean cancellation handled');
+        _log.info('Clean cancellation handled');
         throw Exception('Download cancelled');
       }
       rethrow;
@@ -450,13 +491,13 @@ class RomService {
         match = children.firstWhere(
           (element) =>
               element.name.toLowerCase() == currentSegment.toLowerCase(),
-          orElse:
-              () => throw Exception('Segment not found'), // Trigger outer catch
+          orElse: () =>
+              throw Exception('Segment not found'), // Trigger outer catch
         );
       } catch (_) {
         // Not found in list, and mkdirp failed? Real error.
-        print(
-          '❌ mkdirp failed and segment "$currentSegment" not found in $baseUri',
+        _log.error(
+          'mkdirp failed and segment "$currentSegment" not found in $baseUri',
         );
         rethrow;
       }
@@ -494,7 +535,7 @@ class RomService {
 
       if (isZip) {
         // === ZIP HANDLING: Download to temp cache, extract, paste to SAF ===
-        print('📦 ZIP detected - using temp cache extraction method');
+        _log.info('ZIP detected - using temp cache extraction method');
 
         // Get temp directory for extraction
         final tempDir = await Directory.systemTemp.createTemp('romifleur_zip_');
@@ -504,6 +545,7 @@ class RomService {
           // Download to temp file
           final tempFile = File(tempZipPath);
           final sink = tempFile.openWrite();
+          int lastReportedBytes = 0;
 
           await for (final chunk in responseStream) {
             if (cancelToken?.isCancelled ?? false) {
@@ -512,53 +554,72 @@ class RomService {
             }
             sink.add(chunk);
             received += chunk.length;
-            if (totalLength > 0)
+
+            // Throttle: Update only every 100KB
+            if (totalLength > 0 &&
+                (received - lastReportedBytes > 1024 * 100 ||
+                    received == totalLength)) {
               yield DownloadProgressEvent(
                 progress: received / totalLength * 0.8,
                 receivedBytes: received,
                 totalBytes: totalLength,
               ); // 0-80%
+              lastReportedBytes = received;
+            }
           }
           await sink.close();
 
-          print('✅ ZIP downloaded to temp: $tempZipPath');
+          _log.info('ZIP downloaded to temp: $tempZipPath');
           yield DownloadProgressEvent(
-              progress: 0.8,
-              receivedBytes: totalLength,
-              totalBytes: totalLength); // 80% - download complete
+            progress: 0.8,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          ); // 80% - download complete
 
           // Extract ZIP locally (Background Isolate with Granular Progress)
           final receivePort = ReceivePort();
-          final isolate = await Isolate.spawn(
-            _isolateExtraction,
-            [tempZipPath, tempDir.path, receivePort.sendPort],
+          final isolate = await Isolate.spawn(_isolateExtraction, [
+            tempZipPath,
+            tempDir.path,
+            receivePort.sendPort,
+          ]);
+
+          // Detect unexpected isolate exit (e.g. OOM on large PS2 ZIPs)
+          isolate.addOnExitListener(
+            receivePort.sendPort,
+            response: '__isolate_exit__',
           );
 
           try {
             await for (final message in receivePort) {
-               if (message is double) {
-                 // Map extraction progress (0.0-1.0) to overall progress (0.8-0.9)
-                 yield DownloadProgressEvent(
-                   progress: 0.8 + (0.1 * message),
-                   receivedBytes: totalLength,
-                   totalBytes: totalLength,
-                 );
-               } else if (message == true) {
-                 break; // Done
-               } else if (message is String) {
-                 throw Exception(message);
-               }
+              if (message == '__isolate_exit__') {
+                throw Exception(
+                  'Extraction failed: isolate exited unexpectedly (possible out-of-memory)',
+                );
+              } else if (message is double) {
+                // Map extraction progress (0.0-1.0) to overall progress (0.8-0.9)
+                yield DownloadProgressEvent(
+                  progress: 0.8 + (0.1 * message),
+                  receivedBytes: totalLength,
+                  totalBytes: totalLength,
+                );
+              } else if (message == true) {
+                break; // Done
+              } else if (message is String) {
+                throw Exception(message);
+              }
             }
           } finally {
             isolate.kill(priority: Isolate.immediate);
             receivePort.close();
           }
 
-          print('✅ ZIP extracted locally');
+          _log.info('ZIP extracted locally');
           yield DownloadProgressEvent(
-              progress: 0.9,
-              receivedBytes: totalLength,
-              totalBytes: totalLength); // 90% - extraction complete
+            progress: 0.9,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          ); // 90% - extraction complete
 
           // Delete the ZIP file from temp
           await tempFile.delete();
@@ -597,11 +658,20 @@ class RomService {
               final copySessionId = copyWriteInfo.session;
 
               try {
+                final buffer = BytesBuilder(copy: false);
+                const int bufferSize = 1024 * 1024; // 1MB buffer
+
                 await for (final chunk in localFileStream) {
-                  await safStream.writeChunk(
-                    copySessionId,
-                    Uint8List.fromList(chunk),
-                  );
+                  buffer.add(chunk);
+                  if (buffer.length >= bufferSize) {
+                    await safStream.writeChunk(
+                      copySessionId,
+                      buffer.takeBytes(),
+                    );
+                  }
+                }
+                if (buffer.isNotEmpty) {
+                  await safStream.writeChunk(copySessionId, buffer.takeBytes());
                 }
                 await safStream.endWriteStream(copySessionId);
               } catch (e) {
@@ -622,11 +692,12 @@ class RomService {
 
           // Cleanup temp directory
           await tempDir.delete(recursive: true);
-          print('✅ SAF extraction complete, temp cleaned up');
+          _log.info('SAF extraction complete, temp cleaned up');
           yield DownloadProgressEvent(
-              progress: 1.0,
-              receivedBytes: totalLength,
-              totalBytes: totalLength);
+            progress: 1.0,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          );
         } catch (e) {
           // Cleanup temp on error
           try {
@@ -647,32 +718,78 @@ class RomService {
           );
           sessionId = writeInfo.session;
 
-          print('📝 SAF write session started: $sessionId');
+          _log.debug('SAF write session started: $sessionId');
 
           // Stream download chunks directly to SAF
-          await for (final chunk in responseStream) {
-            if (cancelToken?.isCancelled ?? false) {
-              throw Exception('Download cancelled');
+          final buffer = BytesBuilder(copy: false);
+          const int bufferSize = 1024 * 1024; // 1MB buffer
+          int lastReportedBytes = 0;
+
+          // Producer-Consumer Logic to decouple Network (Fast) from Disk (Slow-ish)
+          final writeController = StreamController<Uint8List>();
+          final writeFuture = (() async {
+            try {
+              await for (final chunk in writeController.stream) {
+                await safStream.writeChunk(sessionId!, chunk);
+              }
+            } catch (e) {
+              // If write fails, we should probably propagate?
+              // For now, caller will handle main error, this just stops writing.
+              _log.error('SAF Async Write Error: $e');
+              rethrow;
             }
-            await safStream.writeChunk(sessionId, Uint8List.fromList(chunk));
-            received += chunk.length;
-            if (totalLength > 0)
-              yield DownloadProgressEvent(
-                progress: received / totalLength,
-                receivedBytes: received,
-                totalBytes: totalLength,
-              );
+          })();
+
+          try {
+            await for (final chunk in responseStream) {
+              if (cancelToken?.isCancelled ?? false) {
+                throw Exception('Download cancelled');
+              }
+
+              buffer.add(chunk);
+              received += chunk.length;
+
+              if (buffer.length >= bufferSize) {
+                writeController.add(buffer.takeBytes());
+              }
+
+              // Throttle: Update only every 100KB
+              if (totalLength > 0 &&
+                  (received - lastReportedBytes > 1024 * 100 ||
+                      received == totalLength)) {
+                yield DownloadProgressEvent(
+                  progress: received / totalLength,
+                  receivedBytes: received,
+                  totalBytes: totalLength,
+                );
+                lastReportedBytes = received;
+              }
+            }
+
+            if (buffer.isNotEmpty) {
+              writeController.add(buffer.takeBytes());
+            }
+          } catch (e) {
+            await writeController.close();
+            try {
+              await writeFuture;
+            } catch (_) {} // Drain pending writes before cleanup
+            rethrow;
           }
 
           // End write stream
+          await writeController.close();
+          await writeFuture; // Wait for pending writes to finish
+
           await safStream.endWriteStream(sessionId);
           sessionId = null;
 
-          print('✅ SAF download complete: $filename');
+          _log.info('SAF download complete: $filename');
           yield DownloadProgressEvent(
-              progress: 1.0,
-              receivedBytes: totalLength,
-              totalBytes: totalLength);
+            progress: 1.0,
+            receivedBytes: totalLength,
+            totalBytes: totalLength,
+          );
         } catch (e) {
           // Try to clean up session if it was started
           if (sessionId != null) {
@@ -694,16 +811,27 @@ class RomService {
 
     try {
       final dir = p.dirname(zipPath);
-      
+
       // Spawn the isolation
-      isolate = await Isolate.spawn(
-        _isolateExtraction,
-        [zipPath, dir, receivePort.sendPort],
+      isolate = await Isolate.spawn(_isolateExtraction, [
+        zipPath,
+        dir,
+        receivePort.sendPort,
+      ]);
+
+      // Detect unexpected isolate exit (e.g. OOM on large ZIPs)
+      isolate.addOnExitListener(
+        receivePort.sendPort,
+        response: '__isolate_exit__',
       );
 
       // Listen for progress messages
       await for (final message in receivePort) {
-        if (message is double) {
+        if (message == '__isolate_exit__') {
+          throw Exception(
+            'Extraction failed: isolate exited unexpectedly (possible out-of-memory)',
+          );
+        } else if (message is double) {
           yield message; // 0.0 to 1.0
         } else if (message == true) {
           break; // Done
@@ -711,7 +839,7 @@ class RomService {
           throw Exception(message); // Error from isolate
         }
       }
-      
+
       // Kill isolate to release file locks on Windows
       isolate.kill(priority: Isolate.immediate);
       isolate = null;

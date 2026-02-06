@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.5] - 2026-02-06
+### Fixes 🐛
+- **Android Download Crash**: Fixed downloads stopping at ~70% with 0GB files on SAF devices (Odin 2, phones) — `writeFuture` was not awaited on error path.
+- **Extraction Freeze**: Fixed progress bar stuck during ZIP extraction — `processedBytes` was not incremented in the `List<int>` branch.
+- **Isolate Crash Detection**: Added exit listeners to detect isolate OOM crashes on large files (PS2) instead of hanging forever.
+- **Silent Extraction Failures**: Extraction errors are now properly propagated instead of being silently swallowed.
+- **PS2 File Corruption (Issue #38)**: Added post-extraction file size verification to detect corrupted extractions.
+- **Disk Full Error (Issue #43)**: Pre-download disk space check with clear error message. Catches OS-specific disk full errors (ENOSPC, ERROR_DISK_FULL).
+- **Memory Leak**: Fixed `StreamSubscription` leak in MetadataService when closing details dialog during loading.
+- **Cache Corruption**: Debounced cache saves (500ms) to prevent concurrent file writes.
+
+### Performance ⚡
+- **Search Debounce**: 300ms debounce on search input — reduces rebuilds from every keystroke to ~3/s.
+- **Cached Ownership Scan**: Filesystem scan results are now cached and only refreshed on console change or after download.
+- **LRU ROM Cache**: ROM lists limited to 10 entries with 30min TTL to prevent unbounded memory growth.
+- **Image Caching**: Cover images now use `CachedNetworkImage` instead of re-downloading on each dialog open.
+- **ListView Performance**: Added `itemExtent` for smoother scrolling on large lists (5000+ ROMs).
+- **Reduced Rebuilds**: Merged double state updates in search — 1 rebuild instead of 2-3.
+
+### Code Quality 🧹
+- **Structured Logging**: Replaced all `print()` calls with `AppLogger` (debug/info/warning/error levels, suppressed in release mode).
+- **Specific Error Handling**: `FileSystemException` caught specifically for disk-full scenarios with OS error codes.
+- **Magic Strings**: Extracted SharedPreferences keys to constants.
+
 ## 3.3.4
 ### New Features 🚀
 - **Background Downloads**: Downloads now continue reliably when the app is in the background or screen is off (Android).
