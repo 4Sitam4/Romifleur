@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.6] - 2026-02-06
+### Fixes 🐛
+- **Out of Memory on Large ROMs (Android)**: Fixed OOM crash when extracting large ZIP files (PSP 1.5GB+) on Android. Switched from `ZipDecoder().decodeBuffer()` (loads entire ZIP into RAM) to `extractFileToDisk()` (streams file-by-file from disk). Same fix as server-side v3.3.1, now applied to native Android.
+- **Docker/Web Build**: Fixed web compilation errors caused by missing `DownloadProgressEvent` class and `subtext` parameter in web stubs.
+
 ## [3.3.5] - 2026-02-06
 ### Fixes 🐛
 - **Android Download Crash**: Fixed downloads stopping at ~70% with 0GB files on SAF devices (Odin 2, phones) — `writeFuture` was not awaited on error path.
