@@ -207,6 +207,7 @@ class RomService {
     required String saveDir,
     String? customPath,
     DownloadCancellationToken? cancelToken,
+    int resumeFrom = 0,
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');
