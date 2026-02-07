@@ -8,6 +8,7 @@ import 'package:romifleur/services/ra_service.dart';
 import 'package:romifleur/services/update_service.dart';
 import 'package:romifleur/services/local_scanner_service.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
+import 'package:romifleur/utils/download_exceptions.dart';
 import 'package:romifleur/utils/logger.dart';
 import '../models/console.dart';
 import '../models/rom.dart';
@@ -686,184 +687,234 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
           ),
         );
 
-        try {
-          final customPath = configService.getConsolePath(item.console);
+        const int maxRetries = 3;
+        const Duration retryDelay = Duration(seconds: 5);
+        int retryCount = 0;
+        int resumeBytes = 0;
+        bool downloadSucceeded = false;
+        bool shouldBreak = false;
 
-          final stream = romService.downloadFile(
-            item.category,
-            item.console,
-            item.filename,
-            saveDir: saveDir,
-            customPath: customPath,
-            cancelToken: _cancelToken,
-          );
-
-          await for (final event in stream) {
-            if (_cancelToken?.isCancelled ?? false) {
-              throw Exception('Download cancelled');
-            }
-
-            final fileProgress = event.progress;
-
-            // Speed & ETA Calculation (Throttle updates to ~1s)
-            final now = DateTime.now();
-            if (_lastSpeedUpdate == null ||
-                now.difference(_lastSpeedUpdate).inMilliseconds > 1000) {
-              if (_lastSpeedUpdate != null) {
-                final duration =
-                    now.difference(_lastSpeedUpdate).inMilliseconds / 1000.0;
-                final bytesDiff = event.receivedBytes - _lastBytesReceived;
-                if (duration > 0) {
-                  final instantSpeed = bytesDiff / duration;
-                  
-                  // SMA Smoothing: Average of last N samples
-                  _speedBuffer.add(instantSpeed);
-                  if (_speedBuffer.length > _bufferSize) {
-                    _speedBuffer.removeAt(0);
-                  }
-                  
-                  if (_speedBuffer.isNotEmpty) {
-                    _currentSpeed = _speedBuffer.reduce((a, b) => a + b) / 
-                                   _speedBuffer.length;
-                  }
-                }
-              }
-              _lastSpeedUpdate = now;
-              _lastBytesReceived = event.receivedBytes;
-            }
-
-            String speedStr = '';
-            String etaStr = '';
-
-            if (fileProgress < 1.0 && _currentSpeed > 0) {
-              final remainingBytes = event.totalBytes - event.receivedBytes;
-              final secondsLeft = remainingBytes / _currentSpeed;
-              speedStr = '${_formatBytes(_currentSpeed)}/s';
-              if (secondsLeft < 60) {
-                etaStr = '${secondsLeft.toInt()}s';
-              } else {
-                final minutes = (secondsLeft / 60).toInt();
-                final seconds = (secondsLeft % 60).toInt();
-                etaStr = '${minutes}m ${seconds}s';
-              }
-            }
-
-            double normalizedProgress;
-            if (fileProgress <= 1.0) {
-              normalizedProgress = fileProgress * 0.9;
-            } else {
-              // Extraction phase (progress > 1.0)
-              normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
-              speedStr = 'Extracting...';
-              etaStr = '';
-            }
-
-            final double itemContribution = 1.0 / totalCount;
-            final double currentBase = (processedCount - 1) / totalCount;
-            final double actual =
-                (currentBase + (itemContribution * normalizedProgress)) * 100;
-
-            // Update UI/Notification (Throttle to match speed calc)
-            // Update if:
-            // 1. Download complete (progress >= 1.0)
-            // 2. Speed was just updated (within last 100ms) - this syncs UI with speed calc
-            // 3. First update (_lastSpeedUpdate is null)
-            if (fileProgress >= 1.0 ||
-                now.difference(_lastSpeedUpdate).inMilliseconds < 100) {
-              
-              // Notification
-              final int currentPercent = actual.toInt();
-              if (currentPercent != _lastPercentage || now.second % 5 == 0) {
-                 _lastPercentage = currentPercent;
-                backgroundService.showProgress(
-                  fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
-                  currentPercent,
-                  100,
-                  subtext: fileProgress > 1.0
-                      ? null
-                      : '$speedStr - $etaStr remaining',
-                );
-              }
-
-              // State (UI)
-              state = state.copyWith(
-                progress: state.progress.copyWith(
-                  current: processedCount,
-                  total: totalCount,
-                  currentFile: item.filename,
-                  status: fileProgress > 1.0
-                      ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
-                      : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
-                  percentage: actual,
-                  isDownloading: true,
-                  speed: speedStr,
-                  eta: etaStr,
-                ),
-              );
-            }
-          }
-
-          // SUCCESS: Remove item and update total size
-          final updatedItems = List<DownloadItem>.from(state.items);
-          final indexToRemove = updatedItems.indexWhere(
-            (i) => i.filename == item.filename && i.console == item.console,
-          );
-
-          if (indexToRemove != -1) {
-            final removed = updatedItems.removeAt(indexToRemove);
-            double currentBytes = _parseSizeToBytes(state.totalSize);
-            currentBytes -= _parseSizeToBytes(removed.size);
-            if (currentBytes < 0) currentBytes = 0;
-
-            state = state.copyWith(
-              items: updatedItems,
-              totalSize: _formatBytes(currentBytes),
-            );
-          }
-        } on FileSystemException catch (e) {
-          final errorCode = e.osError?.errorCode;
-          // ENOSPC (Linux/Mac: 28), ERROR_DISK_FULL (Windows: 112), ERROR_HANDLE_DISK_FULL (Windows: 39)
-          if (errorCode == 28 || errorCode == 112 || errorCode == 39) {
-            _log.error('Disk full: ${item.filename}');
+        while (retryCount <= maxRetries && !downloadSucceeded && !shouldBreak) {
+          if (retryCount > 0) {
+            _log.info('Retry $retryCount/$maxRetries for ${item.filename} '
+                '(resuming from $resumeBytes bytes)');
             state = state.copyWith(
               progress: state.progress.copyWith(
-                status: 'Error: Not enough disk space to save ${item.filename}',
+                status: 'Retrying ${item.filename} ($retryCount/$maxRetries)...',
                 isDownloading: true,
                 speed: '',
                 eta: '',
               ),
             );
-            _cancelToken = null;
-            break; // Stop all downloads — disk is full
-          }
-          _log.error('File system error: $e');
-          state = state.copyWith(
-            progress: state.progress.copyWith(
-              status: 'Error: ${e.message}',
-              isDownloading: true,
-              speed: '',
-              eta: '',
-            ),
-          );
-          await Future.delayed(const Duration(milliseconds: 500));
-        } catch (e) {
-          if ((e.toString().contains('cancelled'))) {
-            _log.info('Download Cancelled: ${item.filename}');
-            _cancelToken = null;
-            break;
+            // Reset speed calculation state for retry
+            _lastSpeedUpdate = null;
+            _lastBytesReceived = resumeBytes;
+            _currentSpeed = 0;
+            _speedBuffer.clear();
+            await Future.delayed(retryDelay);
           }
 
-          _log.error('Download Error: $e');
-          state = state.copyWith(
-            progress: state.progress.copyWith(
-              status: 'Error: $e',
-              isDownloading: true,
-              speed: '',
-              eta: '',
-            ),
-          );
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
+          try {
+            final customPath = configService.getConsolePath(item.console);
+
+            final stream = romService.downloadFile(
+              item.category,
+              item.console,
+              item.filename,
+              saveDir: saveDir,
+              customPath: customPath,
+              cancelToken: _cancelToken,
+              resumeFrom: resumeBytes,
+            );
+
+            await for (final event in stream) {
+              if (_cancelToken?.isCancelled ?? false) {
+                throw Exception('Download cancelled');
+              }
+
+              final fileProgress = event.progress;
+
+              // Speed & ETA Calculation (Throttle updates to ~1s)
+              final now = DateTime.now();
+              if (_lastSpeedUpdate == null ||
+                  now.difference(_lastSpeedUpdate).inMilliseconds > 1000) {
+                if (_lastSpeedUpdate != null) {
+                  final duration =
+                      now.difference(_lastSpeedUpdate).inMilliseconds / 1000.0;
+                  final bytesDiff = event.receivedBytes - _lastBytesReceived;
+                  if (duration > 0) {
+                    final instantSpeed = bytesDiff / duration;
+
+                    // SMA Smoothing: Average of last N samples
+                    _speedBuffer.add(instantSpeed);
+                    if (_speedBuffer.length > _bufferSize) {
+                      _speedBuffer.removeAt(0);
+                    }
+
+                    if (_speedBuffer.isNotEmpty) {
+                      _currentSpeed = _speedBuffer.reduce((a, b) => a + b) /
+                                     _speedBuffer.length;
+                    }
+                  }
+                }
+                _lastSpeedUpdate = now;
+                _lastBytesReceived = event.receivedBytes;
+              }
+
+              String speedStr = '';
+              String etaStr = '';
+
+              if (fileProgress < 1.0 && _currentSpeed > 0) {
+                final remainingBytes = event.totalBytes - event.receivedBytes;
+                final secondsLeft = remainingBytes / _currentSpeed;
+                speedStr = '${_formatBytes(_currentSpeed)}/s';
+                if (secondsLeft < 60) {
+                  etaStr = '${secondsLeft.toInt()}s';
+                } else {
+                  final minutes = (secondsLeft / 60).toInt();
+                  final seconds = (secondsLeft % 60).toInt();
+                  etaStr = '${minutes}m ${seconds}s';
+                }
+              }
+
+              double normalizedProgress;
+              if (fileProgress <= 1.0) {
+                normalizedProgress = fileProgress * 0.9;
+              } else {
+                // Extraction phase (progress > 1.0)
+                normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
+                speedStr = 'Extracting...';
+                etaStr = '';
+              }
+
+              final double itemContribution = 1.0 / totalCount;
+              final double currentBase = (processedCount - 1) / totalCount;
+              final double actual =
+                  (currentBase + (itemContribution * normalizedProgress)) * 100;
+
+              // Update UI/Notification (Throttle to match speed calc)
+              if (fileProgress >= 1.0 ||
+                  now.difference(_lastSpeedUpdate).inMilliseconds < 100) {
+
+                // Notification
+                final int currentPercent = actual.toInt();
+                if (currentPercent != _lastPercentage || now.second % 5 == 0) {
+                   _lastPercentage = currentPercent;
+                  backgroundService.showProgress(
+                    fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
+                    currentPercent,
+                    100,
+                    subtext: fileProgress > 1.0
+                        ? null
+                        : '$speedStr - $etaStr remaining',
+                  );
+                }
+
+                // State (UI)
+                state = state.copyWith(
+                  progress: state.progress.copyWith(
+                    current: processedCount,
+                    total: totalCount,
+                    currentFile: item.filename,
+                    status: fileProgress > 1.0
+                        ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
+                        : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
+                    percentage: actual,
+                    isDownloading: true,
+                    speed: speedStr,
+                    eta: etaStr,
+                  ),
+                );
+              }
+            }
+
+            downloadSucceeded = true;
+
+            // SUCCESS: Remove item and update total size
+            final updatedItems = List<DownloadItem>.from(state.items);
+            final indexToRemove = updatedItems.indexWhere(
+              (i) => i.filename == item.filename && i.console == item.console,
+            );
+
+            if (indexToRemove != -1) {
+              final removed = updatedItems.removeAt(indexToRemove);
+              double currentBytes = _parseSizeToBytes(state.totalSize);
+              currentBytes -= _parseSizeToBytes(removed.size);
+              if (currentBytes < 0) currentBytes = 0;
+
+              state = state.copyWith(
+                items: updatedItems,
+                totalSize: _formatBytes(currentBytes),
+              );
+            }
+          } on IncompleteDownloadException catch (e) {
+            resumeBytes = e.received;
+            retryCount++;
+            _log.warning('Incomplete download: ${e.received}/${e.expected} bytes');
+            if (retryCount > maxRetries) {
+              _log.error('Max retries exceeded for ${item.filename}');
+              state = state.copyWith(
+                progress: state.progress.copyWith(
+                  status: 'Failed after $maxRetries retries: ${item.filename}',
+                  isDownloading: true,
+                  speed: '',
+                  eta: '',
+                ),
+              );
+              await Future.delayed(const Duration(milliseconds: 500));
+            }
+          } on FileSystemException catch (e) {
+            final errorCode = e.osError?.errorCode;
+            // ENOSPC (Linux/Mac: 28), ERROR_DISK_FULL (Windows: 112), ERROR_HANDLE_DISK_FULL (Windows: 39)
+            if (errorCode == 28 || errorCode == 112 || errorCode == 39) {
+              _log.error('Disk full: ${item.filename}');
+              state = state.copyWith(
+                progress: state.progress.copyWith(
+                  status: 'Error: Not enough disk space to save ${item.filename}',
+                  isDownloading: true,
+                  speed: '',
+                  eta: '',
+                ),
+              );
+              _cancelToken = null;
+              shouldBreak = true; // Stop all downloads — disk is full
+            } else {
+              _log.error('File system error: $e');
+              state = state.copyWith(
+                progress: state.progress.copyWith(
+                  status: 'Error: ${e.message}',
+                  isDownloading: true,
+                  speed: '',
+                  eta: '',
+                ),
+              );
+              await Future.delayed(const Duration(milliseconds: 500));
+              shouldBreak = true;
+            }
+          } catch (e) {
+            if ((e.toString().contains('cancelled'))) {
+              _log.info('Download Cancelled: ${item.filename}');
+              _cancelToken = null;
+              shouldBreak = true;
+            } else {
+              retryCount++;
+              _log.error('Download Error (attempt $retryCount/$maxRetries): $e');
+              if (retryCount > maxRetries) {
+                state = state.copyWith(
+                  progress: state.progress.copyWith(
+                    status: 'Failed after $maxRetries retries: $e',
+                    isDownloading: true,
+                    speed: '',
+                    eta: '',
+                  ),
+                );
+                await Future.delayed(const Duration(milliseconds: 500));
+              }
+            }
+          }
+        } // end retry while loop
+
+        if (shouldBreak) break;
       }
     } finally {
       _cancelToken = null;

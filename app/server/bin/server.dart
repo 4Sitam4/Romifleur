@@ -5,6 +5,7 @@ import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:archive/archive_io.dart';
 
@@ -315,8 +316,11 @@ Future<Response> _downloadHandler(Request request) async {
       headers['Referer'] = 'https://myrient.erista.me/';
     }
 
-    // Start Download (Streamed)
-    final client = http.Client();
+    // Start Download (Streamed) with timeout
+    final rawHttpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30)
+      ..idleTimeout = const Duration(seconds: 120);
+    final client = IOClient(rawHttpClient);
     if (downloadId != null) {
       _activeDownloads[downloadId] = client;
     }
@@ -332,23 +336,39 @@ Future<Response> _downloadHandler(Request request) async {
             body: 'Upstream Error: ${response.statusCode}');
       }
 
+      final totalLength = response.contentLength ?? 0;
+      int received = 0;
       final sink = file.openWrite();
+
       try {
-        await response.stream.pipe(sink);
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          received += chunk.length;
+        }
+        await sink.close();
+
+        // Verify download completeness
+        if (totalLength > 0 && received != totalLength) {
+          try { await file.delete(); } catch (_) {}
+          throw Exception(
+            'Incomplete download: $received/$totalLength bytes received',
+          );
+        }
       } catch (e) {
+        await sink.close();
         // Checking if it was cancelled
         if (e is http.ClientException || e.toString().contains('closed')) {
           print('🚫 Download Cancelled/Interrupted for ID: $downloadId');
+          try { await file.delete(); } catch (_) {}
           throw Exception('Download Cancelled');
         }
+        try { await file.delete(); } catch (_) {}
         rethrow;
-      } finally {
-        await sink.close();
       }
 
       client.close();
 
-      print('✅ Download Complete: ${file.path}');
+      print('✅ Download Complete: ${file.path} ($received bytes)');
 
       // EXTRACTION LOGIC
       if (filename.toLowerCase().endsWith('.zip')) {

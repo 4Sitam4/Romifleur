@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.7] - 2026-02-07
+### Fixes 🐛
+- **Silent Download Truncation**: Fixed critical bug where HTTP streams closing silently (network drop, server reset) produced incomplete files saved as complete. Added content-length verification after every download stream loop (3 locations: regular path, SAF ZIP, SAF non-ZIP).
+- **No HTTP Timeout**: Downloads used a bare `http.Client()` with no timeout configuration. Replaced with `IOClient` wrapping `HttpClient` with `connectionTimeout: 30s` and `idleTimeout: 60s` — stalled connections are now detected and errored.
+- **Retry with Resume**: Failed downloads now automatically retry up to 3 times with HTTP Range resume. Incomplete `.tmp` files are preserved between retries. If the server doesn't support Range (responds 200 instead of 206), the download restarts from 0.
+- **Server Download Verification (Docker/Web)**: Server-side downloads now use manual stream processing with content-length verification instead of blind `.pipe()`. Added IOClient with 120s idle timeout.
+
 ## [3.3.6] - 2026-02-06
 ### Fixes 🐛
 - **Out of Memory on Large ROMs (Android)**: Fixed OOM crash when extracting large ZIP files (PSP 1.5GB+) on Android. Switched from `ZipDecoder().decodeBuffer()` (loads entire ZIP into RAM) to `extractFileToDisk()` (streams file-by-file from disk). Same fix as server-side v3.3.1, now applied to native Android.

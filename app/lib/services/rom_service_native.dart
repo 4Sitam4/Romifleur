@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:romifleur/services/config_service.dart';
@@ -11,6 +12,7 @@ import 'package:archive/archive_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
+import 'package:romifleur/utils/download_exceptions.dart';
 import 'package:romifleur/utils/logger.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
@@ -240,6 +242,7 @@ class RomService {
     required String saveDir,
     String? customPath,
     DownloadCancellationToken? cancelToken,
+    int resumeFrom = 0,
   }) async* {
     final config = _configService.getConsoleConfig(category, consoleKey);
     if (config == null) throw Exception('Config error');
@@ -252,10 +255,14 @@ class RomService {
     // Check if we're using SAF (content:// URI)
     final bool useSaf = _configService.isSafUri(saveDir);
 
-    _log.info('Downloading: $downloadUrl');
+    _log.info('Downloading: $downloadUrl${resumeFrom > 0 ? ' (resuming from $resumeFrom bytes)' : ''}');
     _log.info('Save dir: $saveDir (SAF: $useSaf)');
 
-    final client = http.Client();
+    // HTTP client with timeouts to detect dead connections
+    final rawHttpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30)
+      ..idleTimeout = const Duration(seconds: 60);
+    final client = IOClient(rawHttpClient);
 
     // Register cancellation
     cancelToken?.onCancel(() {
@@ -269,10 +276,26 @@ class RomService {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Referer': baseUrl,
       });
+      if (resumeFrom > 0 && !useSaf) {
+        request.headers['Range'] = 'bytes=$resumeFrom-';
+      }
 
       final response = await client.send(request);
-      final totalLength = response.contentLength ?? 0;
-      int received = 0;
+
+      // Handle resume: server returns 206 for Range requests, 200 for full
+      int totalLength;
+      int received;
+      if (resumeFrom > 0 && response.statusCode == 206) {
+        totalLength = (response.contentLength ?? 0) + resumeFrom;
+        received = resumeFrom;
+        _log.info('Resume accepted: continuing from $resumeFrom bytes');
+      } else {
+        totalLength = response.contentLength ?? 0;
+        received = 0;
+        if (resumeFrom > 0) {
+          _log.warning('Server ignored Range header (status ${response.statusCode}), restarting from 0');
+        }
+      }
 
       if (useSaf) {
         // === SAF PATH (Android SD Card) ===
@@ -310,8 +333,13 @@ class RomService {
         IOSink? sink;
 
         try {
-          sink = file.openWrite();
-          int lastReportedBytes = 0;
+          // Append mode if resuming, write mode otherwise
+          if (resumeFrom > 0 && await file.exists()) {
+            sink = file.openWrite(mode: FileMode.append);
+          } else {
+            sink = file.openWrite();
+          }
+          int lastReportedBytes = received;
 
           await for (final chunk in response.stream) {
             if (cancelToken?.isCancelled ?? false) {
@@ -335,10 +363,20 @@ class RomService {
           await sink.close();
           sink = null;
 
+          // Verify download completeness
+          if (totalLength > 0 && received != totalLength) {
+            throw IncompleteDownloadException(
+              received: received,
+              expected: totalLength,
+              tempFilePath: file.path,
+            );
+          }
+
           await file.rename(finalPath);
         } catch (e) {
           await sink?.close();
-          if (await file.exists()) {
+          // Preserve .tmp for resume on incomplete downloads
+          if (e is! IncompleteDownloadException && await file.exists()) {
             try {
               await file.delete();
               _log.info('Deleted incomplete file: ${file.path}');
@@ -483,6 +521,14 @@ class RomService {
             }
           }
           await sink.close();
+
+          // Verify download completeness
+          if (totalLength > 0 && received != totalLength) {
+            throw IncompleteDownloadException(
+              received: received,
+              expected: totalLength,
+            );
+          }
 
           _log.info('ZIP downloaded to temp: $tempZipPath');
           yield DownloadProgressEvent(
@@ -679,6 +725,14 @@ class RomService {
                 );
                 lastReportedBytes = received;
               }
+            }
+
+            // Verify download completeness
+            if (totalLength > 0 && received != totalLength) {
+              throw IncompleteDownloadException(
+                received: received,
+                expected: totalLength,
+              );
             }
 
             if (buffer.isNotEmpty) {
