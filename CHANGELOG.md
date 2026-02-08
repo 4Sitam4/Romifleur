@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.8] - 2026-02-08
+### Fixes 🐛
+- **Windows False Location Usage**: Fixed Windows showing "your location is being used" in the taskbar permanently. Caused by `permission_handler_windows` plugin registering a WinRT Geolocator listener at startup even though the app never uses location. Replaced with a no-op override since permissions are only needed on Android. ([#1289](https://github.com/Baseflow/flutter-permission-handler/issues/1289))
+
 ## [3.3.7] - 2026-02-07
 ### Fixes 🐛
 - **Silent Download Truncation**: Fixed critical bug where HTTP streams closing silently (network drop, server reset) produced incomplete files saved as complete. Added content-length verification after every download stream loop (3 locations: regular path, SAF ZIP, SAF non-ZIP).

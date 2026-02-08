@@ -1,0 +1,19 @@
+name: permission_handler_windows
+description: No-op override to prevent permission_handler_windows from registering a WinRT Geolocator at startup (causes false "location in use" on Windows).
+version: 0.2.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  permission_handler_platform_interface: ^4.0.0
+
+flutter:
+  plugin:
+    platforms:
+      windows:
+        dartPluginClass: PermissionHandlerWindows
