@@ -665,6 +665,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
     double _currentSpeed = 0;
     final List<double> _speedBuffer = [];
     const int _bufferSize = 25; // Store last 25 samples for smoothing
+    DateTime? _lastUiUpdate;
 
     try {
       for (var item in itemsToDownload) {
@@ -675,6 +676,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         _lastBytesReceived = 0;
         _currentSpeed = 0;
         _speedBuffer.clear();
+        _lastUiUpdate = null;
 
         state = state.copyWith(
           progress: DownloadProgress(
@@ -792,9 +794,11 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               final double actual =
                   (currentBase + (itemContribution * normalizedProgress)) * 100;
 
-              // Update UI/Notification (Throttle to match speed calc)
+              // Update UI/Notification (always during extraction, throttle download to ~100ms)
               if (fileProgress >= 1.0 ||
-                  now.difference(_lastSpeedUpdate).inMilliseconds < 100) {
+                  _lastUiUpdate == null ||
+                  now.difference(_lastUiUpdate!).inMilliseconds > 100) {
+                _lastUiUpdate = now;
 
                 // Notification
                 final int currentPercent = actual.toInt();
@@ -817,7 +821,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                     total: totalCount,
                     currentFile: item.filename,
                     status: fileProgress > 1.0
-                        ? 'Extracting ${((fileProgress - 1.0) * 100).toInt()}%'
+                        ? 'Extracting ${((fileProgress - 1.0) * 100).clamp(0, 100).toInt()}%'
                         : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
                     percentage: actual,
                     isDownloading: true,

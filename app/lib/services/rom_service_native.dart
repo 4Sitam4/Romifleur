@@ -20,15 +20,122 @@ import 'package:saf_util/saf_util.dart';
 const _log = AppLogger('RomService');
 
 // Top-level isolated function for background extraction
-// Uses extractFileToDisk for memory-efficient streaming extraction
-// This processes file-by-file without loading entire archive into RAM
+// Chunked extraction with intra-file byte-level progress
+// Based on v3.3.5 approach with security checks + size verification
 void _isolateExtraction(List<dynamic> args) {
   final String zipPath = args[0];
   final String destPath = args[1];
   final SendPort sendPort = args[2];
 
   try {
-    extractFileToDisk(zipPath, destPath);
+    final inputStream = InputFileStream(zipPath);
+    final archive = ZipDecoder().decodeBuffer(inputStream);
+
+    // Calculate total uncompressed size for byte-level progress
+    int totalBytes = 0;
+    for (final file in archive.files) {
+      if (file.isFile) totalBytes += file.size;
+    }
+
+    int processedBytes = 0;
+    int lastUpdateMs = 0;
+
+    sendPort.send(0.0); // Signal: extraction starting
+
+    final outDir = Directory(destPath);
+    if (!outDir.existsSync()) {
+      outDir.createSync(recursive: true);
+    }
+
+    for (final file in archive.files) {
+      if (file.isFile) {
+        final filePath = p.join(destPath, p.normalize(file.name));
+
+        // Security: reject path traversal
+        if (!p.isWithin(p.canonicalize(destPath), p.canonicalize(filePath))) {
+          continue;
+        }
+
+        // Ensure parent directory exists
+        final parentDir = Directory(p.dirname(filePath));
+        if (!parentDir.existsSync()) {
+          parentDir.createSync(recursive: true);
+        }
+
+        final outputStream = OutputFileStream(filePath);
+
+        // Chunked write with intra-file progress (1MB chunks)
+        dynamic content = file.content;
+
+        if (content is InputStreamBase) {
+          const chunkSize = 1024 * 1024; // 1MB
+          while (!content.isEOS) {
+            final int remaining = content.length - content.position;
+            final int len = remaining < chunkSize ? remaining : chunkSize;
+            if (len <= 0) break;
+
+            final bytes = content.readBytes(len).toUint8List();
+            outputStream.writeBytes(bytes);
+            processedBytes += len;
+
+            final nowMs = DateTime.now().millisecondsSinceEpoch;
+            if (nowMs - lastUpdateMs > 100) {
+              sendPort.send(processedBytes / totalBytes);
+              lastUpdateMs = nowMs;
+            }
+          }
+        } else if (content is List<int>) {
+          const chunkSize = 1024 * 1024; // 1MB
+          int position = 0;
+          while (position < content.length) {
+            final int remaining = content.length - position;
+            final int len = remaining < chunkSize ? remaining : chunkSize;
+            outputStream.writeBytes(content.sublist(position, position + len));
+            position += len;
+            processedBytes += len;
+
+            final nowMs = DateTime.now().millisecondsSinceEpoch;
+            if (nowMs - lastUpdateMs > 100) {
+              sendPort.send(processedBytes / totalBytes);
+              lastUpdateMs = nowMs;
+            }
+          }
+        } else {
+          // Fallback: single write (no intra-file progress possible)
+          file.writeContent(outputStream);
+          processedBytes += file.size;
+        }
+
+        outputStream.closeSync();
+
+        // Post-extraction verification: check file size matches ZIP header
+        final extractedFile = File(filePath);
+        if (extractedFile.existsSync()) {
+          final actualSize = extractedFile.lengthSync();
+          if (actualSize != file.size) {
+            sendPort.send(
+              'Extraction failed: size mismatch for ${file.name} '
+              '(expected ${file.size} bytes, got $actualSize bytes)',
+            );
+            return; // Stop extraction on corruption
+          }
+        }
+      } else {
+        // Directory entry
+        final dirPath = p.join(destPath, p.normalize(file.name));
+        if (p.isWithin(p.canonicalize(destPath), p.canonicalize(dirPath))) {
+          Directory(dirPath).createSync(recursive: true);
+        }
+      }
+    }
+
+    // Final progress
+    if (totalBytes > 0) {
+      sendPort.send(1.0);
+    }
+
+    inputStream.closeSync();
+    archive.clear();
     sendPort.send(true); // Done
   } catch (e) {
     sendPort.send(e.toString()); // Error
