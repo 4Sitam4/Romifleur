@@ -763,10 +763,15 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                 _lastBytesReceived = event.receivedBytes;
               }
 
+              // Detect phase: explicit from event, or auto-detect via progress value
+              final bool isExtracting = event.phase == 'extracting' ||
+                  event.phase == 'copying' ||
+                  fileProgress > 1.0;
+
               String speedStr = '';
               String etaStr = '';
 
-              if (fileProgress < 1.0 && _currentSpeed > 0) {
+              if (!isExtracting && _currentSpeed > 0) {
                 final remainingBytes = event.totalBytes - event.receivedBytes;
                 final secondsLeft = remainingBytes / _currentSpeed;
                 speedStr = '${_formatBytes(_currentSpeed)}/s';
@@ -780,13 +785,34 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               }
 
               double normalizedProgress;
-              if (fileProgress <= 1.0) {
+              if (!isExtracting) {
                 normalizedProgress = fileProgress * 0.9;
               } else {
-                // Extraction phase (progress > 1.0)
-                normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
-                speedStr = 'Extracting...';
+                // Extraction/copying phase
+                if (fileProgress > 1.0) {
+                  // Non-SAF: progress is 1.01→2.0, map to 0.9→1.0
+                  normalizedProgress = 0.9 + ((fileProgress - 1.0) * 0.1);
+                } else {
+                  // SAF: progress is 0.0→1.0 but phase tells us it's extraction
+                  normalizedProgress = fileProgress;
+                }
                 etaStr = '';
+              }
+
+              // Status text based on phase
+              String statusText;
+              if (event.phase == 'copying') {
+                final copyPercent = ((fileProgress - 0.9) / 0.1 * 100).clamp(0, 100).toInt();
+                statusText = 'Copying to storage $copyPercent%';
+                speedStr = '';
+              } else if (isExtracting) {
+                final extractPercent = fileProgress > 1.0
+                    ? ((fileProgress - 1.0) * 100).clamp(0, 100).toInt()
+                    : ((fileProgress - 0.8) / 0.1 * 100).clamp(0, 100).toInt();
+                statusText = 'Extracting $extractPercent%';
+                speedStr = '';
+              } else {
+                statusText = 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%';
               }
 
               final double itemContribution = 1.0 / totalCount;
@@ -794,10 +820,10 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               final double actual =
                   (currentBase + (itemContribution * normalizedProgress)) * 100;
 
-              // Update UI/Notification (always during extraction, throttle download to ~100ms)
-              if (fileProgress >= 1.0 ||
-                  _lastUiUpdate == null ||
-                  now.difference(_lastUiUpdate!).inMilliseconds > 100) {
+              // Update UI/Notification (throttle: 250ms during extraction, 100ms during download)
+              final uiThrottleMs = isExtracting ? 250 : 100;
+              if (_lastUiUpdate == null ||
+                  now.difference(_lastUiUpdate!).inMilliseconds > uiThrottleMs) {
                 _lastUiUpdate = now;
 
                 // Notification
@@ -805,12 +831,12 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                 if (currentPercent != _lastPercentage || now.second % 5 == 0) {
                    _lastPercentage = currentPercent;
                   backgroundService.showProgress(
-                    fileProgress > 1.0 ? 'Extracting...' : 'Down: ${item.filename}',
+                    isExtracting
+                        ? (event.phase == 'copying' ? 'Copying...' : 'Extracting...')
+                        : 'Down: ${item.filename}',
                     currentPercent,
                     100,
-                    subtext: fileProgress > 1.0
-                        ? null
-                        : '$speedStr - $etaStr remaining',
+                    subtext: isExtracting ? null : '$speedStr - $etaStr remaining',
                   );
                 }
 
@@ -820,9 +846,7 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                     current: processedCount,
                     total: totalCount,
                     currentFile: item.filename,
-                    status: fileProgress > 1.0
-                        ? 'Extracting ${((fileProgress - 1.0) * 100).clamp(0, 100).toInt()}%'
-                        : 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%',
+                    status: statusText,
                     percentage: actual,
                     isDownloading: true,
                     speed: speedStr,

@@ -143,14 +143,16 @@ void _isolateExtraction(List<dynamic> args) {
 }
 
 class DownloadProgressEvent {
-  final double progress; // 0.0 to 1.0 (or > 1.0 for extraction)
+  final double progress; // 0.0 to 1.0 (or > 1.0 for extraction on non-SAF)
   final int receivedBytes;
   final int totalBytes;
+  final String? phase; // 'download', 'extracting', 'copying' — null = auto-detect via progress
 
   const DownloadProgressEvent({
     required this.progress,
     required this.receivedBytes,
     required this.totalBytes,
+    this.phase,
   });
 }
 
@@ -500,15 +502,18 @@ class RomService {
             progress: 1.01,
             receivedBytes: totalLength,
             totalBytes: totalLength,
+            phase: 'extracting',
           );
           try {
             await for (final progress in _extractZipStream(finalPath)) {
               if (cancelToken?.isCancelled ?? false)
                 throw Exception('Cancelled during extraction');
+              // Offset so progress is always > 1.0 (never exactly 1.0)
               yield DownloadProgressEvent(
-                progress: 1.0 + progress,
+                progress: 1.0 + (progress * 0.99) + 0.01,
                 receivedBytes: totalLength,
                 totalBytes: totalLength,
+                phase: 'extracting',
               );
             }
           } catch (e) {
@@ -623,6 +628,7 @@ class RomService {
                 progress: received / totalLength * 0.8,
                 receivedBytes: received,
                 totalBytes: totalLength,
+                phase: 'download',
               ); // 0-80%
               lastReportedBytes = received;
             }
@@ -642,7 +648,8 @@ class RomService {
             progress: 0.8,
             receivedBytes: totalLength,
             totalBytes: totalLength,
-          ); // 80% - download complete
+            phase: 'extracting',
+          ); // 80% - download complete, extraction starting
 
           // Extract ZIP locally (Background Isolate with Granular Progress)
           final receivePort = ReceivePort();
@@ -670,6 +677,7 @@ class RomService {
                   progress: 0.8 + (0.1 * message),
                   receivedBytes: totalLength,
                   totalBytes: totalLength,
+                  phase: 'extracting',
                 );
               } else if (message == true) {
                 break; // Done
@@ -687,15 +695,22 @@ class RomService {
             progress: 0.9,
             receivedBytes: totalLength,
             totalBytes: totalLength,
+            phase: 'extracting',
           ); // 90% - extraction complete
 
           // Delete the ZIP file from temp
           await tempFile.delete();
 
-          // Paste all extracted files to SAF
+          // Paste all extracted files to SAF (byte-level progress)
           final extractedFiles = tempDir.listSync(recursive: true);
-          int fileIndex = 0;
-          final totalFiles = extractedFiles.whereType<File>().length;
+
+          // Calculate total bytes for copy progress
+          int totalExtractedBytes = 0;
+          for (final e in extractedFiles) {
+            if (e is File) totalExtractedBytes += e.lengthSync();
+          }
+          int copiedBytes = 0;
+          int lastCopyReportMs = 0;
 
           for (final entity in extractedFiles) {
             if (entity is File) {
@@ -732,14 +747,27 @@ class RomService {
                 await for (final chunk in localFileStream) {
                   buffer.add(chunk);
                   if (buffer.length >= bufferSize) {
-                    await safStream.writeChunk(
-                      copySessionId,
-                      buffer.takeBytes(),
-                    );
+                    final bytes = buffer.takeBytes();
+                    await safStream.writeChunk(copySessionId, bytes);
+                    copiedBytes += bytes.length;
+
+                    // Byte-level copy progress (throttle 250ms)
+                    final nowMs = DateTime.now().millisecondsSinceEpoch;
+                    if (totalExtractedBytes > 0 && nowMs - lastCopyReportMs > 250) {
+                      yield DownloadProgressEvent(
+                        progress: 0.9 + (0.1 * copiedBytes / totalExtractedBytes),
+                        receivedBytes: totalLength,
+                        totalBytes: totalLength,
+                        phase: 'copying',
+                      );
+                      lastCopyReportMs = nowMs;
+                    }
                   }
                 }
                 if (buffer.isNotEmpty) {
-                  await safStream.writeChunk(copySessionId, buffer.takeBytes());
+                  final bytes = buffer.takeBytes();
+                  await safStream.writeChunk(copySessionId, bytes);
+                  copiedBytes += bytes.length;
                 }
                 await safStream.endWriteStream(copySessionId);
               } catch (e) {
@@ -748,13 +776,6 @@ class RomService {
                 } catch (_) {}
                 rethrow;
               }
-
-              fileIndex++;
-              yield DownloadProgressEvent(
-                progress: 0.9 + (0.1 * fileIndex / totalFiles),
-                receivedBytes: totalLength,
-                totalBytes: totalLength,
-              ); // 90-100%
             }
           }
 
@@ -765,6 +786,7 @@ class RomService {
             progress: 1.0,
             receivedBytes: totalLength,
             totalBytes: totalLength,
+            phase: 'copying',
           );
         } catch (e) {
           // Cleanup temp on error

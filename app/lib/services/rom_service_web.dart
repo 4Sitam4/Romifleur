@@ -17,11 +17,13 @@ class DownloadProgressEvent {
   final double progress;
   final int receivedBytes;
   final int totalBytes;
+  final String? phase;
 
   const DownloadProgressEvent({
     required this.progress,
     required this.receivedBytes,
     required this.totalBytes,
+    this.phase,
   });
 }
 

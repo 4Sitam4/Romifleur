@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.3.9] - 2026-02-08
+### Fixes 🐛
+- **Extraction Progress Stuck at 1% (Windows)**: Rewrote ZIP extraction to use 1MB chunked writes with intra-file byte-level progress reporting. Previously used `file.writeContent()` which wrote entire files at once with no progress updates. Restored from v3.3.5 approach with added security checks. (#38)
+- **0-Byte Corrupted Files After Extraction**: Removed silent `catch (_) {}` in extraction isolate that swallowed write errors, producing empty files. Added post-extraction file size verification against ZIP headers. (#38)
+- **UI Stuck on "Downloading 100%"**: Fixed extraction progress offset so it never equals exactly `1.0`, which was misinterpreted as download phase instead of extraction phase.
+- **UI Freeze During Extraction (Windows)**: Reduced UI update frequency from 10/s to 4/s during extraction (250ms throttle vs 100ms) to prevent widget rebuild saturation.
+- **Android SAF: Extraction Phase Never Shown**: Added explicit `phase` field to progress events (`download`, `extracting`, `copying`). Android SAF flow now correctly shows "Extracting N%" and "Copying to storage N%" instead of generic download text.
+- **Android SAF: Progress Stuck at 90%**: SAF copy phase now reports byte-level progress during streaming instead of only after each file completes.
+- **UI Throttle Bug**: Fixed broken throttle condition in download provider that used `_lastSpeedUpdate` (always 0ms old) instead of a dedicated `_lastUiUpdate` timestamp.
+
 ## [3.3.8] - 2026-02-08
 ### Fixes 🐛
 - **Windows False Location Usage**: Fixed Windows showing "your location is being used" in the taskbar permanently. Caused by `permission_handler_windows` plugin registering a WinRT Geolocator listener at startup even though the app never uses location. Replaced with a no-op override since permissions are only needed on Android. ([#1289](https://github.com/Baseflow/flutter-permission-handler/issues/1289))

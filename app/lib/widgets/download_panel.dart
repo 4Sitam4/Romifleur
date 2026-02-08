@@ -103,7 +103,8 @@ class DownloadPanel extends ConsumerWidget {
                       minHeight: 8,
                       backgroundColor: AppTheme.textMuted.withOpacity(0.2),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        state.progress.status.startsWith('Extracting')
+                        state.progress.status.startsWith('Extracting') ||
+                            state.progress.status.startsWith('Copying')
                             ? Colors.purpleAccent
                             : AppTheme.primaryColor,
                       ),
