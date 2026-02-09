@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-02-09
+
+### Fixed
+- Fixed Region filter issue where combined regions (e.g., "Europe, Australia") were not matched correctly.
+- Improved Search logic: search is now case-insensitive and ignores punctuation (e.g., "Megaman" finds "Mega Man").
+
+### Added
+- Confirmed disk space check implementation (providers.dart logic).
+
 ## [3.3.9] - 2026-02-08
 ### Fixes 🐛
 - **Extraction Progress Stuck at 1% (Windows)**: Rewrote ZIP extraction to use 1MB chunked writes with intra-file byte-level progress reporting. Previously used `file.writeContent()` which wrote entire files at once with no progress updates. Restored from v3.3.5 approach with added security checks. (#38)

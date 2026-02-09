@@ -146,7 +146,8 @@ class DownloadProgressEvent {
   final double progress; // 0.0 to 1.0 (or > 1.0 for extraction on non-SAF)
   final int receivedBytes;
   final int totalBytes;
-  final String? phase; // 'download', 'extracting', 'copying' — null = auto-detect via progress
+  final String?
+  phase; // 'download', 'extracting', 'copying' — null = auto-detect via progress
 
   const DownloadProgressEvent({
     required this.progress,
@@ -284,21 +285,37 @@ class RomService {
     var roms = await fetchFileList(category, consoleKey);
     final activeRegions = regions ?? [];
     final activeLanguages = languages ?? [];
-    final queryLower = query.toLowerCase();
     List<RomModel> filtered = [];
 
     for (var rom in roms) {
       final filename = rom.filename;
 
       // 1. Search query filter
-      if (query.isNotEmpty && !filename.toLowerCase().contains(queryLower)) {
-        continue;
+      if (query.isNotEmpty) {
+        final queryNorm = _normalize(query);
+        final filenameNorm = _normalize(filename);
+        if (!filenameNorm.contains(queryNorm)) {
+          continue;
+        }
       }
 
       // 2. Region filter (if any regions are selected)
       // Matches: (USA), (Europe), (Japan), (World), etc.
       if (activeRegions.isNotEmpty) {
-        bool regionMatch = activeRegions.any((r) => filename.contains('($r)'));
+        bool regionMatch = false;
+        for (var r in activeRegions) {
+          // Logic: (Region) OR (Region, OR , Region, OR , Region)
+          if (filename.contains('($r)') ||
+              filename.contains('($r,') ||
+              filename.contains(', $r,') ||
+              filename.contains(', $r)') ||
+              // Also check without space just in case
+              filename.contains(',$r,') ||
+              filename.contains(',$r)')) {
+            regionMatch = true;
+            break;
+          }
+        }
         if (!regionMatch) continue;
       }
 
@@ -344,6 +361,10 @@ class RomService {
     return filtered;
   }
 
+  String _normalize(String text) {
+    return text.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
   Stream<DownloadProgressEvent> downloadFile(
     String category,
     String consoleKey,
@@ -364,7 +385,9 @@ class RomService {
     // Check if we're using SAF (content:// URI)
     final bool useSaf = _configService.isSafUri(saveDir);
 
-    _log.info('Downloading: $downloadUrl${resumeFrom > 0 ? ' (resuming from $resumeFrom bytes)' : ''}');
+    _log.info(
+      'Downloading: $downloadUrl${resumeFrom > 0 ? ' (resuming from $resumeFrom bytes)' : ''}',
+    );
     _log.info('Save dir: $saveDir (SAF: $useSaf)');
 
     // HTTP client with timeouts to detect dead connections
@@ -402,7 +425,9 @@ class RomService {
         totalLength = response.contentLength ?? 0;
         received = 0;
         if (resumeFrom > 0) {
-          _log.warning('Server ignored Range header (status ${response.statusCode}), restarting from 0');
+          _log.warning(
+            'Server ignored Range header (status ${response.statusCode}), restarting from 0',
+          );
         }
       }
 
@@ -753,9 +778,11 @@ class RomService {
 
                     // Byte-level copy progress (throttle 250ms)
                     final nowMs = DateTime.now().millisecondsSinceEpoch;
-                    if (totalExtractedBytes > 0 && nowMs - lastCopyReportMs > 250) {
+                    if (totalExtractedBytes > 0 &&
+                        nowMs - lastCopyReportMs > 250) {
                       yield DownloadProgressEvent(
-                        progress: 0.9 + (0.1 * copiedBytes / totalExtractedBytes),
+                        progress:
+                            0.9 + (0.1 * copiedBytes / totalExtractedBytes),
                         receivedBytes: totalLength,
                         totalBytes: totalLength,
                         phase: 'copying',

@@ -145,20 +145,37 @@ class RomService {
     var roms = await fetchFileList(category, consoleKey);
     final activeRegions = regions ?? [];
     final activeLanguages = languages ?? [];
-    final queryLower = query.toLowerCase();
     List<RomModel> filtered = [];
 
     for (var rom in roms) {
       final filename = rom.filename;
 
       // 1. Search query filter
-      if (query.isNotEmpty && !filename.toLowerCase().contains(queryLower)) {
-        continue;
+      if (query.isNotEmpty) {
+        final queryNorm = _normalize(query);
+        final filenameNorm = _normalize(filename);
+        if (!filenameNorm.contains(queryNorm)) {
+          continue;
+        }
       }
 
       // 2. Region filter (if any regions are selected)
+      // Matches: (USA), (Europe), (Japan), (World), etc.
       if (activeRegions.isNotEmpty) {
-        bool regionMatch = activeRegions.any((r) => filename.contains('($r)'));
+        bool regionMatch = false;
+        for (var r in activeRegions) {
+          // Logic: (Region) OR (Region, OR , Region, OR , Region)
+          if (filename.contains('($r)') ||
+              filename.contains('($r,') ||
+              filename.contains(', $r,') ||
+              filename.contains(', $r)') ||
+              // Also check without space just in case
+              filename.contains(',$r,') ||
+              filename.contains(',$r)')) {
+            regionMatch = true;
+            break;
+          }
+        }
         if (!regionMatch) continue;
       }
 
@@ -200,6 +217,10 @@ class RomService {
     // Sort alphabetically
     filtered.sort((a, b) => a.filename.compareTo(b.filename));
     return filtered;
+  }
+
+  String _normalize(String text) {
+    return text.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   Stream<DownloadProgressEvent> downloadFile(
@@ -261,8 +282,16 @@ class RomService {
 
       if (response.statusCode == 200) {
         print('✅ Server accepted download');
-        yield DownloadProgressEvent(progress: 1.0, receivedBytes: 0, totalBytes: 0);
-        yield DownloadProgressEvent(progress: 2.0, receivedBytes: 0, totalBytes: 0); // Done
+        yield DownloadProgressEvent(
+          progress: 1.0,
+          receivedBytes: 0,
+          totalBytes: 0,
+        );
+        yield DownloadProgressEvent(
+          progress: 2.0,
+          receivedBytes: 0,
+          totalBytes: 0,
+        ); // Done
       } else {
         throw Exception(
           'Server failed: ${response.statusCode} ${response.body}',
