@@ -16,3 +16,18 @@ class IncompleteDownloadException implements Exception {
       'Download incomplete: received $received of $expected bytes '
       '(${(received / expected * 100).toStringAsFixed(1)}%)';
 }
+
+/// Thrown when the SAF URI permission has expired or been revoked.
+/// The user needs to re-select the download folder.
+class SafPermissionException implements Exception {
+  final String uri;
+  final String message;
+
+  SafPermissionException({
+    required this.uri,
+    this.message = 'Storage access permission has expired. Please re-select your download folder.',
+  });
+
+  @override
+  String toString() => 'SafPermissionException: $message';
+}

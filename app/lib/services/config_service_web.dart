@@ -81,6 +81,10 @@ class ConfigService {
     // No-op
   }
 
+  Future<bool> validateSafPermission() async {
+    return true; // Web doesn't use SAF
+  }
+
   Future<String?> getEffectiveDownloadLocation() async {
     return getDownloadPath();
   }

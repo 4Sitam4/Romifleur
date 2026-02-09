@@ -626,6 +626,22 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
       return;
     }
 
+    // Validate SAF permission before starting downloads
+    if (configService.isSafUri(saveDir)) {
+      final hasPermission = await configService.validateSafPermission();
+      if (!hasPermission) {
+        state = state.copyWith(
+          isLoading: false,
+          progress: const DownloadProgress(
+            status: 'Error: Folder access expired. Please re-select your download folder in Settings.',
+            isDownloading: false,
+          ),
+        );
+        await backgroundService.disableBackgroundExecution();
+        return;
+      }
+    }
+
     // Check available disk space (non-SAF paths only)
     if (!configService.isSafUri(saveDir)) {
       try {
@@ -919,6 +935,17 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               await Future.delayed(const Duration(milliseconds: 500));
               shouldBreak = true;
             }
+          } on SafPermissionException catch (e) {
+            _log.error('SAF permission expired: $e');
+            state = state.copyWith(
+              progress: state.progress.copyWith(
+                status: 'Error: Folder access expired. Please re-select your download folder.',
+                isDownloading: true,
+                speed: '',
+                eta: '',
+              ),
+            );
+            shouldBreak = true; // No retry — permission is expired
           } catch (e) {
             if ((e.toString().contains('cancelled'))) {
               _log.info('Download Cancelled: ${item.filename}');

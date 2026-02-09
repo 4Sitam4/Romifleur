@@ -51,6 +51,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           await _showRaSetupDialog();
         }
       }
+    } else if (!kIsWeb && Platform.isAndroid && config.isSafUri(location)) {
+      // Validate SAF permission is still active (can expire after app updates)
+      final isValid = await config.validateSafPermission();
+      if (!isValid && mounted) {
+        _log.warning('SAF permission expired, prompting re-selection');
+        await _showSafExpiredDialog();
+      }
     }
 
     if (mounted) {
@@ -394,6 +401,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showSafExpiredDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 12),
+            Expanded(child: Text('Folder Access Expired')),
+          ],
+        ),
+        content: const Text(
+          'Access to your download folder has expired. '
+          'This can happen after an app update.\n\n'
+          'Please re-select your download folder to continue.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              final config = ref.read(configServiceProvider);
+              try {
+                final safUtil = SafUtil();
+                final result = await safUtil.pickDirectory(
+                  writePermission: true,
+                  persistablePermission: true,
+                );
+                if (result != null && mounted) {
+                  _log.info('SAF folder re-selected: ${result.uri}');
+                  await config.setDownloadUri(result.uri);
+                  Navigator.of(context).pop();
+                }
+              } catch (e) {
+                _log.error('SAF re-pick failed: $e');
+              }
+            },
+            child: const Text('Re-select Folder'),
+          ),
+        ],
       ),
     );
   }

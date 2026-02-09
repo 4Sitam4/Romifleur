@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:romifleur/utils/logger.dart';
+import 'package:saf_util/saf_util.dart';
 
 const _log = AppLogger('ConfigService');
 
@@ -102,6 +103,26 @@ class ConfigService {
   /// Clear SAF URI
   Future<void> clearDownloadUri() async {
     await _prefs.remove(_kRomsUriKey);
+  }
+
+  /// Validates that the stored SAF URI still has read+write permission.
+  /// Returns true if no SAF URI is stored (non-SAF path) or if permission is valid.
+  /// Returns false if SAF URI is stored but permission has expired/been revoked.
+  Future<bool> validateSafPermission() async {
+    final uri = getDownloadUri();
+    if (uri == null) return true;
+
+    try {
+      final safUtil = SafUtil();
+      return await safUtil.hasPersistedPermission(
+        uri,
+        checkRead: true,
+        checkWrite: true,
+      );
+    } catch (e) {
+      _log.warning('SAF permission check failed: $e');
+      return false;
+    }
   }
 
   /// Get effective download location (URI or path)

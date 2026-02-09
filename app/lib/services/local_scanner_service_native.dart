@@ -80,7 +80,14 @@ class LocalScannerService {
         }
       }
     } catch (e) {
-      _log.error('Error scanning directory ($directoryPath): $e');
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('securityexception') ||
+          errStr.contains('permission denial') ||
+          errStr.contains('eacces')) {
+        _log.error('SAF permission expired for $directoryPath. User needs to re-select folder.');
+      } else {
+        _log.error('Error scanning directory ($directoryPath): $e');
+      }
     }
 
     return foundFiles;

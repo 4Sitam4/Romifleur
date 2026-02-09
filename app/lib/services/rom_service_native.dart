@@ -926,6 +926,14 @@ class RomService {
         }
       }
     } catch (e) {
+      // Detect SAF permission errors and wrap them
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('securityexception') ||
+          errStr.contains('permission denial') ||
+          errStr.contains('eacces') ||
+          (errStr.contains('permission') && errStr.contains('denied'))) {
+        throw SafPermissionException(uri: safDirUri, message: e.toString());
+      }
       rethrow;
     }
   }
