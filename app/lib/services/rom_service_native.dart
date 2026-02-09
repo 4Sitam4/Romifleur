@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:io' as io;
 import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,7 @@ import 'package:path/path.dart' as p;
 import 'package:romifleur/models/rom.dart';
 import 'package:romifleur/utils/cancellation_token.dart';
 import 'package:romifleur/utils/download_exceptions.dart';
+import 'package:archive/archive.dart';
 import 'package:romifleur/utils/logger.dart';
 import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
@@ -22,13 +24,14 @@ const _log = AppLogger('RomService');
 // Top-level isolated function for background extraction
 // Chunked extraction with intra-file byte-level progress
 // Based on v3.3.5 approach with security checks + size verification
-void _isolateExtraction(List<dynamic> args) {
+Future<void> _isolateExtraction(List<dynamic> args) async {
   final String zipPath = args[0];
   final String destPath = args[1];
   final SendPort sendPort = args[2];
 
   try {
     final inputStream = InputFileStream(zipPath);
+    // Decode ONLY the central directory structure, NOT the content
     final archive = ZipDecoder().decodeBuffer(inputStream);
 
     // Calculate total uncompressed size for byte-level progress
@@ -64,35 +67,57 @@ void _isolateExtraction(List<dynamic> args) {
 
         final outputStream = OutputFileStream(filePath);
 
-        // Chunked write with intra-file progress (1MB chunks)
-        dynamic content = file.content;
+        // STREAMING DECOMPRESSION (Fixes OOM on Android)
+        // Access rawContent (compressed stream) instead of content (which triggers full decompress)
+        final rawContent = file.rawContent;
 
-        if (content is InputStreamBase) {
-          const chunkSize = 1024 * 1024; // 1MB
-          while (!content.isEOS) {
-            final int remaining = content.length - content.position;
-            final int len = remaining < chunkSize ? remaining : chunkSize;
-            if (len <= 0) break;
+        if (rawContent != null) {
+          // Convert InputStream to Dart Stream
+          final streamController = StreamController<List<int>>();
+          // We must read the InputStream in chunks and feed the controller
+          // This is synchronous in the isolate but decoupled via stream
 
-            final bytes = content.readBytes(len).toUint8List();
-            outputStream.writeBytes(bytes);
-            processedBytes += len;
+          Future<void> feedStream() async {
+            try {
+              const chunkSize = 1024 * 64; // 64KB chunks
+              final length = rawContent.length;
+              int readSoFar = 0;
 
-            final nowMs = DateTime.now().millisecondsSinceEpoch;
-            if (nowMs - lastUpdateMs > 100) {
-              sendPort.send(processedBytes / totalBytes);
-              lastUpdateMs = nowMs;
+              while (readSoFar < length) {
+                final remaining = length - readSoFar;
+                final size = remaining < chunkSize ? remaining : chunkSize;
+                final bytes = rawContent.readBytes(size).toUint8List();
+                streamController.add(bytes);
+                readSoFar += size;
+                // Yield to event loop to allow processing
+                await Future.delayed(Duration.zero);
+              }
+              await streamController.close();
+            } catch (e) {
+              streamController.addError(e);
             }
           }
-        } else if (content is List<int>) {
-          const chunkSize = 1024 * 1024; // 1MB
-          int position = 0;
-          while (position < content.length) {
-            final int remaining = content.length - position;
-            final int len = remaining < chunkSize ? remaining : chunkSize;
-            outputStream.writeBytes(content.sublist(position, position + len));
-            position += len;
-            processedBytes += len;
+
+          // Start feeding the stream
+          feedStream();
+
+          // Decompress stream using dart:io ZLibDecoder (Deflate)
+          // or copy directly if STORE (0)
+          Stream<List<int>> decompressedStream;
+
+          if (file.compressionType == ArchiveFile.DEFLATE) {
+            // raw: true means raw Deflate (no zlib header), which ZIP uses
+            decompressedStream = io.ZLibDecoder(
+              raw: true,
+            ).bind(streamController.stream);
+          } else {
+            // STORE (no compression)
+            decompressedStream = streamController.stream;
+          }
+
+          await for (final chunk in decompressedStream) {
+            outputStream.writeBytes(chunk);
+            processedBytes += chunk.length;
 
             final nowMs = DateTime.now().millisecondsSinceEpoch;
             if (nowMs - lastUpdateMs > 100) {
@@ -101,14 +126,13 @@ void _isolateExtraction(List<dynamic> args) {
             }
           }
         } else {
-          // Fallback: single write (no intra-file progress possible)
-          file.writeContent(outputStream);
-          processedBytes += file.size;
+          // Should not happen for valid files
+          throw Exception('File content is null');
         }
 
         outputStream.closeSync();
 
-        // Post-extraction verification: check file size matches ZIP header
+        // Post-extraction verification
         final extractedFile = File(filePath);
         if (extractedFile.existsSync()) {
           final actualSize = extractedFile.lengthSync();
@@ -117,7 +141,7 @@ void _isolateExtraction(List<dynamic> args) {
               'Extraction failed: size mismatch for ${file.name} '
               '(expected ${file.size} bytes, got $actualSize bytes)',
             );
-            return; // Stop extraction on corruption
+            return;
           }
         }
       } else {
@@ -129,11 +153,7 @@ void _isolateExtraction(List<dynamic> args) {
       }
     }
 
-    // Final progress
-    if (totalBytes > 0) {
-      sendPort.send(1.0);
-    }
-
+    if (totalBytes > 0) sendPort.send(1.0);
     inputStream.closeSync();
     archive.clear();
     sendPort.send(true); // Done
@@ -543,7 +563,7 @@ class RomService {
             }
           } catch (e) {
             _log.warning('Extraction failed: $e');
-            rethrow;
+            throw ExtractionException(e.toString());
           }
         }
       }
@@ -668,153 +688,161 @@ class RomService {
             );
           }
 
-          _log.info('ZIP downloaded to temp: $tempZipPath');
-          yield DownloadProgressEvent(
-            progress: 0.8,
-            receivedBytes: totalLength,
-            totalBytes: totalLength,
-            phase: 'extracting',
-          ); // 80% - download complete, extraction starting
-
-          // Extract ZIP locally (Background Isolate with Granular Progress)
-          final receivePort = ReceivePort();
-          final isolate = await Isolate.spawn(_isolateExtraction, [
-            tempZipPath,
-            tempDir.path,
-            receivePort.sendPort,
-          ]);
-
-          // Detect unexpected isolate exit (e.g. OOM on large PS2 ZIPs)
-          isolate.addOnExitListener(
-            receivePort.sendPort,
-            response: '__isolate_exit__',
-          );
-
           try {
-            await for (final message in receivePort) {
-              if (message == '__isolate_exit__') {
-                throw Exception(
-                  'Extraction failed: isolate exited unexpectedly (possible out-of-memory)',
-                );
-              } else if (message is double) {
-                // Map extraction progress (0.0-1.0) to overall progress (0.8-0.9)
-                yield DownloadProgressEvent(
-                  progress: 0.8 + (0.1 * message),
-                  receivedBytes: totalLength,
-                  totalBytes: totalLength,
-                  phase: 'extracting',
-                );
-              } else if (message == true) {
-                break; // Done
-              } else if (message is String) {
-                throw Exception(message);
+            _log.info('ZIP downloaded to temp: $tempZipPath');
+            yield DownloadProgressEvent(
+              progress: 0.8,
+              receivedBytes: totalLength,
+              totalBytes: totalLength,
+              phase: 'extracting',
+            ); // 80% - download complete, extraction starting
+
+            // Extract ZIP locally (Background Isolate with Granular Progress)
+            final receivePort = ReceivePort();
+            final isolate = await Isolate.spawn(_isolateExtraction, [
+              tempZipPath,
+              tempDir.path,
+              receivePort.sendPort,
+            ]);
+
+            // Detect unexpected isolate exit (e.g. OOM on large PS2 ZIPs)
+            isolate.addOnExitListener(
+              receivePort.sendPort,
+              response: '__isolate_exit__',
+            );
+
+            try {
+              await for (final message in receivePort) {
+                if (message == '__isolate_exit__') {
+                  throw Exception(
+                    'Extraction failed: isolate exited unexpectedly (possible out-of-memory)',
+                  );
+                } else if (message is double) {
+                  // Map extraction progress (0.0-1.0) to overall progress (0.8-0.9)
+                  yield DownloadProgressEvent(
+                    progress: 0.8 + (0.1 * message),
+                    receivedBytes: totalLength,
+                    totalBytes: totalLength,
+                    phase: 'extracting',
+                  );
+                } else if (message == true) {
+                  break; // Done
+                } else if (message is String) {
+                  throw Exception(message);
+                }
               }
+            } finally {
+              isolate.kill(priority: Isolate.immediate);
+              receivePort.close();
             }
-          } finally {
-            isolate.kill(priority: Isolate.immediate);
-            receivePort.close();
-          }
 
-          _log.info('ZIP extracted locally');
-          yield DownloadProgressEvent(
-            progress: 0.9,
-            receivedBytes: totalLength,
-            totalBytes: totalLength,
-            phase: 'extracting',
-          ); // 90% - extraction complete
+            _log.info('ZIP extracted locally');
+            yield DownloadProgressEvent(
+              progress: 0.9,
+              receivedBytes: totalLength,
+              totalBytes: totalLength,
+              phase: 'extracting',
+            ); // 90% - extraction complete
 
-          // Delete the ZIP file from temp
-          await tempFile.delete();
+            // Delete the ZIP file from temp
+            await tempFile.delete();
 
-          // Paste all extracted files to SAF (byte-level progress)
-          final extractedFiles = tempDir.listSync(recursive: true);
+            // Paste all extracted files to SAF (byte-level progress)
+            final extractedFiles = tempDir.listSync(recursive: true);
 
-          // Calculate total bytes for copy progress
-          int totalExtractedBytes = 0;
-          for (final e in extractedFiles) {
-            if (e is File) totalExtractedBytes += e.lengthSync();
-          }
-          int copiedBytes = 0;
-          int lastCopyReportMs = 0;
+            // Calculate total bytes for copy progress
+            int totalExtractedBytes = 0;
+            for (final e in extractedFiles) {
+              if (e is File) totalExtractedBytes += e.lengthSync();
+            }
+            int copiedBytes = 0;
+            int lastCopyReportMs = 0;
 
-          for (final entity in extractedFiles) {
-            if (entity is File) {
-              final relativePath = p.relative(entity.path, from: tempDir.path);
-              // Skip the original zip if it somehow exists
-              if (relativePath == filename) continue;
-
-              // Create parent dirs in SAF if needed
-              final parentDir = p.dirname(relativePath);
-              String destDirUri = targetDirUri;
-              if (parentDir != '.' && parentDir.isNotEmpty) {
-                final subDirs = parentDir.split(p.separator);
-                final parentResult = await _safeMkdirp(
-                  safUtil,
-                  targetDirUri,
-                  subDirs,
+            for (final entity in extractedFiles) {
+              if (entity is File) {
+                final relativePath = p.relative(
+                  entity.path,
+                  from: tempDir.path,
                 );
-                destDirUri = parentResult.uri;
-              }
+                // Skip the original zip if it somehow exists
+                if (relativePath == filename) continue;
 
-              // Paste file to SAF manually (stream copy) to avoid API issues
-              final localFileStream = entity.openRead();
-              final copyWriteInfo = await safStream.startWriteStream(
-                destDirUri,
-                p.basename(entity.path),
-                'application/octet-stream',
-              );
-              final copySessionId = copyWriteInfo.session;
+                // Create parent dirs in SAF if needed
+                final parentDir = p.dirname(relativePath);
+                String destDirUri = targetDirUri;
+                if (parentDir != '.' && parentDir.isNotEmpty) {
+                  final subDirs = parentDir.split(p.separator);
+                  final parentResult = await _safeMkdirp(
+                    safUtil,
+                    targetDirUri,
+                    subDirs,
+                  );
+                  destDirUri = parentResult.uri;
+                }
 
-              try {
-                final buffer = BytesBuilder(copy: false);
-                const int bufferSize = 1024 * 1024; // 1MB buffer
+                // Paste file to SAF manually (stream copy) to avoid API issues
+                final localFileStream = entity.openRead();
+                final copyWriteInfo = await safStream.startWriteStream(
+                  destDirUri,
+                  p.basename(entity.path),
+                  'application/octet-stream',
+                );
+                final copySessionId = copyWriteInfo.session;
 
-                await for (final chunk in localFileStream) {
-                  buffer.add(chunk);
-                  if (buffer.length >= bufferSize) {
+                try {
+                  final buffer = BytesBuilder(copy: false);
+                  const int bufferSize = 1024 * 1024; // 1MB buffer
+
+                  await for (final chunk in localFileStream) {
+                    buffer.add(chunk);
+                    if (buffer.length >= bufferSize) {
+                      final bytes = buffer.takeBytes();
+                      await safStream.writeChunk(copySessionId, bytes);
+                      copiedBytes += bytes.length;
+
+                      // Byte-level copy progress (throttle 250ms)
+                      final nowMs = DateTime.now().millisecondsSinceEpoch;
+                      if (totalExtractedBytes > 0 &&
+                          nowMs - lastCopyReportMs > 250) {
+                        yield DownloadProgressEvent(
+                          progress:
+                              0.9 + (0.1 * copiedBytes / totalExtractedBytes),
+                          receivedBytes: totalLength,
+                          totalBytes: totalLength,
+                          phase: 'copying',
+                        );
+                        lastCopyReportMs = nowMs;
+                      }
+                    }
+                  }
+                  if (buffer.isNotEmpty) {
                     final bytes = buffer.takeBytes();
                     await safStream.writeChunk(copySessionId, bytes);
                     copiedBytes += bytes.length;
-
-                    // Byte-level copy progress (throttle 250ms)
-                    final nowMs = DateTime.now().millisecondsSinceEpoch;
-                    if (totalExtractedBytes > 0 &&
-                        nowMs - lastCopyReportMs > 250) {
-                      yield DownloadProgressEvent(
-                        progress:
-                            0.9 + (0.1 * copiedBytes / totalExtractedBytes),
-                        receivedBytes: totalLength,
-                        totalBytes: totalLength,
-                        phase: 'copying',
-                      );
-                      lastCopyReportMs = nowMs;
-                    }
                   }
-                }
-                if (buffer.isNotEmpty) {
-                  final bytes = buffer.takeBytes();
-                  await safStream.writeChunk(copySessionId, bytes);
-                  copiedBytes += bytes.length;
-                }
-                await safStream.endWriteStream(copySessionId);
-              } catch (e) {
-                try {
                   await safStream.endWriteStream(copySessionId);
-                } catch (_) {}
-                rethrow;
+                } catch (e) {
+                  try {
+                    await safStream.endWriteStream(copySessionId);
+                  } catch (_) {}
+                  rethrow;
+                }
               }
             }
-          }
 
-          // Cleanup temp directory
-          await tempDir.delete(recursive: true);
-          _log.info('SAF extraction complete, temp cleaned up');
-          yield DownloadProgressEvent(
-            progress: 1.0,
-            receivedBytes: totalLength,
-            totalBytes: totalLength,
-            phase: 'copying',
-          );
+            // Cleanup temp directory
+            await tempDir.delete(recursive: true);
+            _log.info('SAF extraction complete, temp cleaned up');
+            yield DownloadProgressEvent(
+              progress: 1.0,
+              receivedBytes: totalLength,
+              totalBytes: totalLength,
+              phase: 'copying',
+            );
+          } catch (e) {
+            // New: Wrap any extraction/copy error in ExtractionException to prevent retry
+            throw ExtractionException(e.toString());
+          }
         } catch (e) {
           // Cleanup temp on error
           try {

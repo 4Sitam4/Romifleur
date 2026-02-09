@@ -25,9 +25,20 @@ class SafPermissionException implements Exception {
 
   SafPermissionException({
     required this.uri,
-    this.message = 'Storage access permission has expired. Please re-select your download folder.',
+    this.message =
+        'Storage access permission has expired. Please re-select your download folder.',
   });
 
   @override
   String toString() => 'SafPermissionException: $message';
+}
+
+/// Thrown when ZIP extraction or SAF copy fails after download completed.
+/// Should NOT be retried (the download itself succeeded).
+class ExtractionException implements Exception {
+  final String message;
+  ExtractionException(this.message);
+
+  @override
+  String toString() => 'ExtractionException: $message';
 }

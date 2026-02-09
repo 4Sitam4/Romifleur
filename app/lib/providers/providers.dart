@@ -633,7 +633,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
         state = state.copyWith(
           isLoading: false,
           progress: const DownloadProgress(
-            status: 'Error: Folder access expired. Please re-select your download folder in Settings.',
+            status:
+                'Error: Folder access expired. Please re-select your download folder in Settings.',
             isDownloading: false,
           ),
         );
@@ -653,7 +654,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
           );
           // Use df / wmic to check available space cross-platform
           final availableBytes = await _getAvailableSpace(saveDir);
-          if (availableBytes != null && totalQueueBytes > availableBytes * 0.95) {
+          if (availableBytes != null &&
+              totalQueueBytes > availableBytes * 0.95) {
             state = state.copyWith(
               isLoading: false,
               progress: DownloadProgress(
@@ -714,11 +716,14 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
 
         while (retryCount <= maxRetries && !downloadSucceeded && !shouldBreak) {
           if (retryCount > 0) {
-            _log.info('Retry $retryCount/$maxRetries for ${item.filename} '
-                '(resuming from $resumeBytes bytes)');
+            _log.info(
+              'Retry $retryCount/$maxRetries for ${item.filename} '
+              '(resuming from $resumeBytes bytes)',
+            );
             state = state.copyWith(
               progress: state.progress.copyWith(
-                status: 'Retrying ${item.filename} ($retryCount/$maxRetries)...',
+                status:
+                    'Retrying ${item.filename} ($retryCount/$maxRetries)...',
                 isDownloading: true,
                 speed: '',
                 eta: '',
@@ -770,8 +775,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                     }
 
                     if (_speedBuffer.isNotEmpty) {
-                      _currentSpeed = _speedBuffer.reduce((a, b) => a + b) /
-                                     _speedBuffer.length;
+                      _currentSpeed =
+                          _speedBuffer.reduce((a, b) => a + b) /
+                          _speedBuffer.length;
                     }
                   }
                 }
@@ -780,7 +786,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               }
 
               // Detect phase: explicit from event, or auto-detect via progress value
-              final bool isExtracting = event.phase == 'extracting' ||
+              final bool isExtracting =
+                  event.phase == 'extracting' ||
                   event.phase == 'copying' ||
                   fileProgress > 1.0;
 
@@ -818,7 +825,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               // Status text based on phase
               String statusText;
               if (event.phase == 'copying') {
-                final copyPercent = ((fileProgress - 0.9) / 0.1 * 100).clamp(0, 100).toInt();
+                final copyPercent = ((fileProgress - 0.9) / 0.1 * 100)
+                    .clamp(0, 100)
+                    .toInt();
                 statusText = 'Copying to storage $copyPercent%';
                 speedStr = '';
               } else if (isExtracting) {
@@ -828,7 +837,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
                 statusText = 'Extracting $extractPercent%';
                 speedStr = '';
               } else {
-                statusText = 'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%';
+                statusText =
+                    'Downloading ${item.filename} ${(fileProgress * 100).toInt()}%';
               }
 
               final double itemContribution = 1.0 / totalCount;
@@ -839,20 +849,25 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               // Update UI/Notification (throttle: 250ms during extraction, 100ms during download)
               final uiThrottleMs = isExtracting ? 250 : 100;
               if (_lastUiUpdate == null ||
-                  now.difference(_lastUiUpdate!).inMilliseconds > uiThrottleMs) {
+                  now.difference(_lastUiUpdate!).inMilliseconds >
+                      uiThrottleMs) {
                 _lastUiUpdate = now;
 
                 // Notification
                 final int currentPercent = actual.toInt();
                 if (currentPercent != _lastPercentage || now.second % 5 == 0) {
-                   _lastPercentage = currentPercent;
+                  _lastPercentage = currentPercent;
                   backgroundService.showProgress(
                     isExtracting
-                        ? (event.phase == 'copying' ? 'Copying...' : 'Extracting...')
+                        ? (event.phase == 'copying'
+                              ? 'Copying...'
+                              : 'Extracting...')
                         : 'Down: ${item.filename}',
                     currentPercent,
                     100,
-                    subtext: isExtracting ? null : '$speedStr - $etaStr remaining',
+                    subtext: isExtracting
+                        ? null
+                        : '$speedStr - $etaStr remaining',
                   );
                 }
 
@@ -894,7 +909,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
           } on IncompleteDownloadException catch (e) {
             resumeBytes = e.received;
             retryCount++;
-            _log.warning('Incomplete download: ${e.received}/${e.expected} bytes');
+            _log.warning(
+              'Incomplete download: ${e.received}/${e.expected} bytes',
+            );
             if (retryCount > maxRetries) {
               _log.error('Max retries exceeded for ${item.filename}');
               state = state.copyWith(
@@ -914,7 +931,8 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               _log.error('Disk full: ${item.filename}');
               state = state.copyWith(
                 progress: state.progress.copyWith(
-                  status: 'Error: Not enough disk space to save ${item.filename}',
+                  status:
+                      'Error: Not enough disk space to save ${item.filename}',
                   isDownloading: true,
                   speed: '',
                   eta: '',
@@ -939,13 +957,26 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
             _log.error('SAF permission expired: $e');
             state = state.copyWith(
               progress: state.progress.copyWith(
-                status: 'Error: Folder access expired. Please re-select your download folder.',
+                status:
+                    'Error: Folder access expired. Please re-select your download folder.',
                 isDownloading: true,
                 speed: '',
                 eta: '',
               ),
             );
             shouldBreak = true; // No retry — permission is expired
+          } on ExtractionException catch (e) {
+            _log.error('Extraction/copy failed: $e');
+            state = state.copyWith(
+              progress: state.progress.copyWith(
+                status: 'Error: Extraction failed — ${e.message}',
+                isDownloading: true,
+                speed: '',
+                eta: '',
+              ),
+            );
+            shouldBreak =
+                true; // Do NOT retry — download succeeded, extraction failed
           } catch (e) {
             if ((e.toString().contains('cancelled'))) {
               _log.info('Download Cancelled: ${item.filename}');
@@ -953,7 +984,9 @@ class DownloadQueueNotifier extends StateNotifier<DownloadQueueState> {
               shouldBreak = true;
             } else {
               retryCount++;
-              _log.error('Download Error (attempt $retryCount/$maxRetries): $e');
+              _log.error(
+                'Download Error (attempt $retryCount/$maxRetries): $e',
+              );
               if (retryCount > maxRetries) {
                 state = state.copyWith(
                   progress: state.progress.copyWith(

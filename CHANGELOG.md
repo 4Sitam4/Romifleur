@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.1] - 2026-02-09
+### Fixes 🐛
+- **SAF Extraction OOM (Android)**: Implemented true streaming extraction using `dart:io`'s `ZLibDecoder`. Fixes Out-Of-Memory crashes when extracting large files (>1GB) on Android.
+- **Extraction Failures**: Added `ExtractionException` to prevent retry loops when extraction fails (e.g., disk full, corrupted archive).
+- **Search**: Improved search to be case-insensitive and ignore punctuation (e.g., "Megaman" matches "Mega Man").
+- **Region Filter**: Fixed region matching for combined regions (e.g., "Europe, Australia").
+
 ## [3.4.0] - 2026-02-09
 
 ### Fixed
