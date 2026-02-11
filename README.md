@@ -114,6 +114,10 @@ Downloaded games are automatically organized by console:
       └── Final Fantasy VII.iso
 ```
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=4Sitam4/Romifleur&type=date&legend=top-left)](https://www.star-history.com/#4Sitam4/Romifleur&type=date&legend=top-left)
+
 ---
 
 ## 🤝 Acknowledgements
